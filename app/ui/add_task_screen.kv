@@ -1,49 +1,164 @@
 <AddTaskScreen>:
     name: "add_task"
+    md_bg_color: app.theme_cls.backgroundColor
 
     MDBoxLayout:
         orientation: "vertical"
-        padding: 20
-        spacing: 20
+        padding: "0dp", "0dp", "0dp", "20dp"
+        spacing: "16dp"
 
         MDTopAppBar:
-            title: "Add Task"
-            elevation: 4
-            left_action_items: [["arrow-left", lambda x: app.go_to_tasks()]]
+            title: "Add New Task"
+            md_bg_color: app.theme_cls.surfaceContainerColor
+            elevation: 0
+            type_height: "small"
+            left_action_items: [["arrow-left", lambda x: app.go_to_tasks(), "Back"]]
 
-        MDTextField:
-            id: title
-            hint_text: "Title"
-            mode: "outlined"
+        ScrollView:
+            do_scroll_x: False
+            
+            MDBoxLayout:
+                orientation: "vertical"
+                padding: "20dp"
+                spacing: "16dp"
+                size_hint_y: None
+                height: self.minimum_height
 
-        MDTextField:
-            id: description
-            hint_text: "Description"
-            mode: "outlined"
+                # Title Field
+                MDTextField:
+                    id: title
+                    mode: "outlined"
+                    size_hint_x: 1
+                    multiline: False
+                    write_tab: False
+                    text_color_normal: 0, 0, 0, 0.87
+                    text_color_focus: 0.12, 0.46, 0.8, 1
+                    line_color_normal: 0, 0, 0, 0.38
+                    line_color_focus: 0.12, 0.46, 0.8, 1
+                    
+                    MDTextFieldHintText:
+                        text: "Task Title *"
+                    
+                    MDTextFieldHelperText:
+                        text: "Required - What needs to be done?"
+                        mode: "persistent"
 
-        MDTextField:
-            id: category
-            hint_text: "Category"
-            mode: "outlined"
+                # Description Field
+                MDTextField:
+                    id: description
+                    mode: "outlined"
+                    size_hint_x: 1
+                    multiline: True
+                    write_tab: False
+                    text_color_normal: 0, 0, 0, 0.87
+                    text_color_focus: 0.12, 0.46, 0.8, 1
+                    line_color_normal: 0, 0, 0, 0.38
+                    line_color_focus: 0.12, 0.46, 0.8, 1
+                    
+                    MDTextFieldHintText:
+                        text: "Description"
+                    
+                    MDTextFieldHelperText:
+                        text: "Optional - Additional details"
+                        mode: "on_focus"
 
-        MDTextField:
-            id: deadline
-            hint_text: "Deadline (YYYY-MM-DD)"
-            mode: "outlined"
+                # Category Field
+                MDTextField:
+                    id: category
+                    mode: "outlined"
+                    size_hint_x: 1
+                    multiline: False
+                    write_tab: False
+                    text_color_normal: 0, 0, 0, 0.87
+                    text_color_focus: 0.12, 0.46, 0.8, 1
+                    line_color_normal: 0, 0, 0, 0.38
+                    line_color_focus: 0.12, 0.46, 0.8, 1
+                    
+                    MDTextFieldHintText:
+                        text: "Category"
+                    
+                    MDTextFieldHelperText:
+                        text: "Optional - e.g., Work, Personal, Shopping"
+                        mode: "on_focus"
 
-        MDTextField:
-            id: priority
-            hint_text: "Priority (low, medium, high)"
-            mode: "outlined"
+                # Deadline Field with Date Picker
+                MDBoxLayout:
+                    orientation: "horizontal"
+                    size_hint_y: None
+                    height: "56dp"
+                    spacing: "8dp"
+                    
+                    MDTextField:
+                        id: deadline
+                        mode: "outlined"
+                        multiline: False
+                        readonly: True
+                        text_color_normal: 0, 0, 0, 0.87
+                        text_color_focus: 0.12, 0.46, 0.8, 1
+                        line_color_normal: 0, 0, 0, 0.38
+                        line_color_focus: 0.12, 0.46, 0.8, 1
+                        on_focus: if self.focus: root.open_date_picker()
+                        
+                        MDTextFieldHintText:
+                            text: "Deadline (tap to select)"
+                        
+                        MDTextFieldHelperText:
+                            text: "Optional - Click to open date picker"
+                            mode: "persistent"
+                    
+                    MDIconButton:
+                        icon: "calendar"
+                        theme_icon_color: "Custom"
+                        icon_color: app.theme_cls.primaryColor
+                        on_release: root.open_date_picker()
+                        pos_hint: {"center_y": 0.5}
 
-        MDLabel:
-            id: error
-            text: ""
-            theme_text_color: "Error"
-            halign: "center"
+                # Priority Field
+                MDTextField:
+                    id: priority
+                    mode: "outlined"
+                    size_hint_x: 1
+                    multiline: False
+                    write_tab: False
+                    text_color_normal: 0, 0, 0, 0.87
+                    text_color_focus: 0.12, 0.46, 0.8, 1
+                    line_color_normal: 0, 0, 0, 0.38
+                    line_color_focus: 0.12, 0.46, 0.8, 1
+                    
+                    MDTextFieldHintText:
+                        text: "Priority"
+                    
+                    MDTextFieldHelperText:
+                        text: "Optional - low, medium, or high"
+                        mode: "persistent"
 
-        MDButton:
-            text: "Save"
-            pos_hint: {"center_x": 0.5}
-            on_release: root.save_task()
-            style: "filled"
+                # Error Label
+                MDLabel:
+                    id: error
+                    text: ""
+                    halign: "center"
+                    font_style: "Body"
+                    role: "small"
+                    theme_text_color: "Custom"
+                    text_color: app.theme_cls.errorColor
+                    size_hint_y: None
+                    height: self.texture_size[1] if self.text else 0
+
+                # Spacer
+                Widget:
+                    size_hint_y: None
+                    height: "20dp"
+
+                # Save Button
+                MDButton:
+                    style: "filled"
+                    size_hint: (0.7, None)
+                    height: "56dp"
+                    pos_hint: {"center_x": .5}
+                    md_bg_color: app.theme_cls.primaryColor
+                    on_release: root.save_task()
+                    
+                    MDButtonText:
+                        text: "Save Task"
+                        theme_text_color: "Custom"
+                        text_color: app.theme_cls.onPrimaryColor

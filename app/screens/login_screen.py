@@ -12,6 +12,7 @@ class LoginScreen(MDScreen):
     
     def on_enter(self):
         """Called when screen is displayed"""
+        """Called when screen is displayed"""
         if not self._keyboard_bound:
             Window.bind(on_key_down=self.on_keyboard_down)
             self._keyboard_bound = True

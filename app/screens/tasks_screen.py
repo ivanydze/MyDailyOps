@@ -45,11 +45,18 @@ class TasksScreen(MDScreen):
                 .execute()
 
             self.all_tasks = response.data
-            self.apply_sort()
+            print(f"✅ Loaded {len(self.all_tasks)} tasks from database")
+            
+            # Apply filter to populate filtered_tasks
+            self.apply_filter()
+            
+            # Check notifications
             self.check_notifications()
-            self.render_tasks()
+            
         except Exception as e:
             print(f"❌ Error loading tasks: {e}")
+            import traceback
+            traceback.print_exc()
             notifier.show_toast(
                 "Error",
                 "Failed to load tasks. Check your connection.",
@@ -61,13 +68,25 @@ class TasksScreen(MDScreen):
         today = date.today()
         for task in self.all_tasks:
             dl = task.get("deadline")
-            if dl and date.fromisoformat(dl) == today:
-                notifier.show_toast(
-                    "Task Deadline",
-                    f"{task['title']} is due today!",
-                    duration=5,
-                    threaded=True
-                )
+            if dl:
+                # Handle both YYYY-MM-DD and YYYY-MM-DDTHH:MM:SS+TZ formats
+                try:
+                    if 'T' in dl:
+                        # Remove timezone: '2025-12-31T00:00:00+00:00' → '2025-12-31'
+                        dl_clean = dl.split('T')[0]
+                        dl_date = date.fromisoformat(dl_clean)
+                    else:
+                        dl_date = date.fromisoformat(dl)
+                    
+                    if dl_date == today:
+                        notifier.show_toast(
+                            "Task Deadline",
+                            f"{task['title']} is due today!",
+                            duration=5,
+                            threaded=True
+                        )
+                except Exception as e:
+                    print(f"⚠️ Error parsing deadline for task {task.get('title')}: {e}")
 
     # -------------------------
     # RENDER
@@ -85,13 +104,30 @@ class TasksScreen(MDScreen):
         tomorrow = today + timedelta(days=1)
         week_end = today + timedelta(days=7)
 
+        print(f"📊 Grouping {len(tasks)} tasks...")
+
         for t in tasks:
             dl = t.get("deadline")
             if not dl:
                 groups["No Deadline"].append(t)
+                print(f"  → Task '{t.get('title')}' → No Deadline")
                 continue
 
-            dl_date = date.fromisoformat(dl)
+            # Handle both YYYY-MM-DD and YYYY-MM-DDTHH:MM:SS+TZ formats
+            try:
+                # Remove timezone info if present
+                if 'T' in dl:
+                    # Remove timezone: '2025-12-31T00:00:00+00:00' → '2025-12-31'
+                    dl_clean = dl.split('T')[0]
+                    dl_date = date.fromisoformat(dl_clean)
+                else:
+                    dl_date = date.fromisoformat(dl)
+                
+                print(f"  → Task '{t.get('title')}' deadline: {dl_date}")
+            except Exception as e:
+                print(f"⚠️ Error parsing deadline: {dl} - {e}")
+                groups["No Deadline"].append(t)
+                continue
 
             if dl_date == today:
                 groups["Today"].append(t)
@@ -101,6 +137,11 @@ class TasksScreen(MDScreen):
                 groups["This Week"].append(t)
             else:
                 groups["Later"].append(t)
+
+        # Print group summary
+        for group_name, items in groups.items():
+            if items:
+                print(f"  📁 {group_name}: {len(items)} tasks")
 
         return groups
 
@@ -355,6 +396,7 @@ class TasksScreen(MDScreen):
 
     def apply_filter(self):
         flt = self.current_filter
+        print(f"🔍 Applying filter: {flt} (total tasks: {len(self.all_tasks)})")
 
         if flt == "all":
             tasks = self.all_tasks
@@ -368,13 +410,14 @@ class TasksScreen(MDScreen):
             tasks = [t for t in self.all_tasks if t.get("priority") == flt]
 
         self.filtered_tasks = tasks
+        print(f"✅ Filter result: {len(self.filtered_tasks)} tasks")
         self.apply_sort()
-        self.render_tasks()
 
     # -------------------------
     # SORT
     # -------------------------
     def apply_sort(self):
+        print(f"🔄 Sorting {len(self.filtered_tasks)} tasks...")
         self.filtered_tasks = sorted(
             self.filtered_tasks,
             key=lambda t: (
@@ -384,4 +427,5 @@ class TasksScreen(MDScreen):
                 t.get("created_at", "")
             )
         )
+        print(f"✅ Tasks sorted, calling render...")
         self.render_tasks()

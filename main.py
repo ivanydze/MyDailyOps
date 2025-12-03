@@ -18,6 +18,7 @@ Window.size = (400, 700)
 class MyDailyOpsApp(MDApp):
 
     current_user = None
+    run_tests = True  # Set to True to run automated tests
 
     def build(self):
         # Enable Material 3 theme BEFORE loading KV files
@@ -48,6 +49,14 @@ class MyDailyOpsApp(MDApp):
         sm.add_widget(EditTaskScreen(name="edit_task"))
 
         return sm
+    
+    def on_start(self):
+        """Called when app starts - optionally run tests"""
+        if self.run_tests:
+            from test_app import AppTester
+            from kivy.clock import Clock
+            tester = AppTester(self)
+            Clock.schedule_once(lambda dt: tester.start_tests(), 2.0)
 
     def on_login_success(self):
         self.root.current = "tasks"
