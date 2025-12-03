@@ -11,6 +11,13 @@ from win10toast import ToastNotifier
 
 from app.supabase.client import supabase
 from app.widgets.task_card import TaskCard
+from app.utils.tasks import (
+    group_tasks_by_date,
+    sort_tasks,
+    filter_tasks,
+    parse_deadline,
+    TaskFilter
+)
 
 notifier = ToastNotifier()
 
@@ -65,85 +72,25 @@ class TasksScreen(MDScreen):
             )
 
     def check_notifications(self):
+        """Check for tasks due today and show notifications"""
         today = date.today()
         for task in self.all_tasks:
-            dl = task.get("deadline")
-            if dl:
-                # Handle both YYYY-MM-DD and YYYY-MM-DDTHH:MM:SS+TZ formats
-                try:
-                    if 'T' in dl:
-                        # Remove timezone: '2025-12-31T00:00:00+00:00' → '2025-12-31'
-                        dl_clean = dl.split('T')[0]
-                        dl_date = date.fromisoformat(dl_clean)
-                    else:
-                        dl_date = date.fromisoformat(dl)
-                    
-                    if dl_date == today:
-                        notifier.show_toast(
-                            "Task Deadline",
-                            f"{task['title']} is due today!",
-                            duration=5,
-                            threaded=True
-                        )
-                except Exception as e:
-                    print(f"⚠️ Error parsing deadline for task {task.get('title')}: {e}")
+            dl_date = parse_deadline(task.get("deadline"))
+            
+            if dl_date and dl_date == today:
+                notifier.show_toast(
+                    "Task Deadline",
+                    f"{task['title']} is due today!",
+                    duration=5,
+                    threaded=True
+                )
 
     # -------------------------
     # RENDER
     # -------------------------
     def group_tasks_by_date(self, tasks):
-        groups = {
-            "Today": [],
-            "Tomorrow": [],
-            "This Week": [],
-            "Later": [],
-            "No Deadline": []
-        }
-
-        today = date.today()
-        tomorrow = today + timedelta(days=1)
-        week_end = today + timedelta(days=7)
-
-        print(f"📊 Grouping {len(tasks)} tasks...")
-
-        for t in tasks:
-            dl = t.get("deadline")
-            if not dl:
-                groups["No Deadline"].append(t)
-                print(f"  → Task '{t.get('title')}' → No Deadline")
-                continue
-
-            # Handle both YYYY-MM-DD and YYYY-MM-DDTHH:MM:SS+TZ formats
-            try:
-                # Remove timezone info if present
-                if 'T' in dl:
-                    # Remove timezone: '2025-12-31T00:00:00+00:00' → '2025-12-31'
-                    dl_clean = dl.split('T')[0]
-                    dl_date = date.fromisoformat(dl_clean)
-                else:
-                    dl_date = date.fromisoformat(dl)
-                
-                print(f"  → Task '{t.get('title')}' deadline: {dl_date}")
-            except Exception as e:
-                print(f"⚠️ Error parsing deadline: {dl} - {e}")
-                groups["No Deadline"].append(t)
-                continue
-
-            if dl_date == today:
-                groups["Today"].append(t)
-            elif dl_date == tomorrow:
-                groups["Tomorrow"].append(t)
-            elif today < dl_date <= week_end:
-                groups["This Week"].append(t)
-            else:
-                groups["Later"].append(t)
-
-        # Print group summary
-        for group_name, items in groups.items():
-            if items:
-                print(f"  📁 {group_name}: {len(items)} tasks")
-
-        return groups
+        """Group tasks by deadline date - delegated to utils"""
+        return group_tasks_by_date(tasks)
 
     def render_tasks(self):
         lst = self.ids.tasks_list
@@ -376,14 +323,15 @@ class TasksScreen(MDScreen):
     # FILTER
     # -------------------------
     def open_filter_menu(self, caller):
+        """Open filter selection menu"""
         menu_items = [
-            {"text": "All",        "on_release": lambda: self.set_filter("all")},
-            {"text": "New",        "on_release": lambda: self.set_filter("new")},
-            {"text": "Done",       "on_release": lambda: self.set_filter("done")},
-            {"text": "Pinned",     "on_release": lambda: self.set_filter("pinned")},
-            {"text": "High",       "on_release": lambda: self.set_filter("high")},
-            {"text": "Medium",     "on_release": lambda: self.set_filter("medium")},
-            {"text": "Low",        "on_release": lambda: self.set_filter("low")},
+            {"text": "All",        "on_release": lambda: self.set_filter(TaskFilter.ALL.value)},
+            {"text": "New",        "on_release": lambda: self.set_filter(TaskFilter.NEW.value)},
+            {"text": "Done",       "on_release": lambda: self.set_filter(TaskFilter.DONE.value)},
+            {"text": "Pinned",     "on_release": lambda: self.set_filter(TaskFilter.PINNED.value)},
+            {"text": "High",       "on_release": lambda: self.set_filter(TaskFilter.HIGH.value)},
+            {"text": "Medium",     "on_release": lambda: self.set_filter(TaskFilter.MEDIUM.value)},
+            {"text": "Low",        "on_release": lambda: self.set_filter(TaskFilter.LOW.value)},
         ]
 
         self.menu = MDDropdownMenu(caller=caller, items=menu_items, width_mult=3)
@@ -395,37 +343,14 @@ class TasksScreen(MDScreen):
         self.menu.dismiss()
 
     def apply_filter(self):
-        flt = self.current_filter
-        print(f"🔍 Applying filter: {flt} (total tasks: {len(self.all_tasks)})")
-
-        if flt == "all":
-            tasks = self.all_tasks
-        elif flt == "new":
-            tasks = [t for t in self.all_tasks if t.get("status") == "new"]
-        elif flt == "done":
-            tasks = [t for t in self.all_tasks if t.get("status") == "done"]
-        elif flt == "pinned":
-            tasks = [t for t in self.all_tasks if t.get("pinned")]
-        else:
-            tasks = [t for t in self.all_tasks if t.get("priority") == flt]
-
-        self.filtered_tasks = tasks
-        print(f"✅ Filter result: {len(self.filtered_tasks)} tasks")
+        """Apply current filter to tasks - delegated to utils"""
+        self.filtered_tasks = filter_tasks(self.all_tasks, self.current_filter)
         self.apply_sort()
 
     # -------------------------
     # SORT
     # -------------------------
     def apply_sort(self):
-        print(f"🔄 Sorting {len(self.filtered_tasks)} tasks...")
-        self.filtered_tasks = sorted(
-            self.filtered_tasks,
-            key=lambda t: (
-                not t.get("pinned"),
-                t.get("status") == "done",
-                t.get("priority", ""),
-                t.get("created_at", "")
-            )
-        )
-        print(f"✅ Tasks sorted, calling render...")
+        """Sort filtered tasks - delegated to utils"""
+        self.filtered_tasks = sort_tasks(self.filtered_tasks)
         self.render_tasks()

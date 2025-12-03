@@ -120,11 +120,11 @@ class EditTaskScreen(MDScreen):
     def on_time_ok(self, instance_time_picker):
         """Called when time is selected"""
         try:
-            # Get the selected time
-            selected_time = instance_time_picker.get_time()
+            # Get the selected time - use the 'time' property
+            selected_time = instance_time_picker.time
             
             if selected_time and hasattr(self, 'selected_date'):
-                # Combine date and time into ISO format
+                # Combine date and time
                 datetime_obj = datetime.combine(
                     self.selected_date,
                     selected_time

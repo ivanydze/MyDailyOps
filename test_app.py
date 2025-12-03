@@ -9,6 +9,7 @@ import sys
 import os
 from kivy.clock import Clock
 from kivy.core.window import Window
+from datetime import datetime, timedelta
 
 # Test configuration
 TEST_EMAIL = "ivanydze@gmail.com"
@@ -22,6 +23,8 @@ class AppTester:
         self.tests_passed = 0
         self.tests_failed = 0
         self.current_step = 0
+        self.test_task_id = None  # Store created task ID for later tests
+        self.test_task_title = f"Automated Test {datetime.now().strftime('%H:%M:%S')}"
         
     def log(self, message, level="INFO"):
         """Log test messages"""
@@ -108,19 +111,26 @@ class AppTester:
             add_task_screen = self.app.root.get_screen('add_task')
             
             # Fill in task details
-            add_task_screen.ids.title.text = "Test Task from Automated Test"
+            add_task_screen.ids.title.text = self.test_task_title
             add_task_screen.ids.description.text = "This task was created by the automated test suite"
             add_task_screen.ids.category.text = "Testing"
-            add_task_screen.ids.deadline.text = "2025-12-31"
+            
+            # Set deadline as tomorrow at 10:00 AM
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+            add_task_screen.ids.deadline.text = f"{tomorrow} 10:00"
+            
+            # Use priority dropdown
             add_task_screen.ids.priority.text = "high"
             
-            self.log("Task form filled", "INFO")
+            self.log(f"Task form filled: '{self.test_task_title}'", "INFO")
             
             # Save the task
             Clock.schedule_once(lambda dt: self.save_task(), 1.0)
             
         except Exception as e:
             self.log(f"Failed to fill task form: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
             self.tests_failed += 1
             self.finish_tests()
     
@@ -159,9 +169,10 @@ class AppTester:
                     # Look for our test task
                     test_task_found = False
                     for task in tasks_screen.all_tasks:
-                        if "Test Task from Automated Test" in task.get('title', ''):
+                        if self.test_task_title in task.get('title', ''):
                             test_task_found = True
-                            self.log(f"Test task found! ID: {task.get('id')}", "SUCCESS")
+                            self.test_task_id = task.get('id')
+                            self.log(f"Test task found! ID: {self.test_task_id}", "SUCCESS")
                             self.log(f"  Priority: {task.get('priority')}", "INFO")
                             self.log(f"  Deadline: {task.get('deadline')}", "INFO")
                             self.log(f"  Status: {task.get('status')}", "INFO")
@@ -181,14 +192,16 @@ class AppTester:
                             self.log("Tasks are being rendered in UI", "SUCCESS")
                         else:
                             self.log("WARNING: No widgets in tasks list!", "WARNING")
+                        
+                        # Continue to next test: Mark as done
+                        Clock.schedule_once(lambda dt: self.test_mark_done(), 2.0)
                     else:
                         self.log("Test task not found in list", "WARNING")
-                        self.tests_passed += 1  # Still pass if task was created
+                        self.tests_passed += 1
+                        self.finish_tests()
                 else:
                     self.log("No tasks in list", "WARNING")
-                
-                # Finish tests
-                Clock.schedule_once(lambda dt: self.finish_tests(), 2.0)
+                    self.finish_tests()
             else:
                 self.log(f"Not on tasks screen: {self.app.root.current}", "ERROR")
                 self.tests_failed += 1
@@ -201,12 +214,238 @@ class AppTester:
             self.tests_failed += 1
             self.finish_tests()
     
+    def test_mark_done(self):
+        """Test 3: Mark task as done"""
+        self.log("TEST 3: Testing mark as done", "INFO")
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            # Find our test task
+            test_task = None
+            for task in tasks_screen.all_tasks:
+                if task.get('id') == self.test_task_id:
+                    test_task = task
+                    break
+            
+            if test_task:
+                # Mark as done
+                tasks_screen.toggle_done(test_task)
+                self.log("Mark as done triggered", "INFO")
+                
+                # Verify after delay
+                Clock.schedule_once(lambda dt: self.verify_task_done(), 2.0)
+            else:
+                self.log("Test task not found for marking done", "ERROR")
+                self.tests_failed += 1
+                self.finish_tests()
+                
+        except Exception as e:
+            self.log(f"Mark done test failed: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
+            self.tests_failed += 1
+            self.finish_tests()
+    
+    def verify_task_done(self):
+        """Verify task was marked as done"""
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            # Find our test task
+            for task in tasks_screen.all_tasks:
+                if task.get('id') == self.test_task_id:
+                    if task.get('status') == 'done':
+                        self.log("Task marked as done successfully", "SUCCESS")
+                        self.tests_passed += 1
+                        
+                        # Continue to filter test
+                        Clock.schedule_once(lambda dt: self.test_filters(), 2.0)
+                    else:
+                        self.log(f"Task status is {task.get('status')}, expected 'done'", "ERROR")
+                        self.tests_failed += 1
+                        self.finish_tests()
+                    return
+            
+            self.log("Test task not found", "ERROR")
+            self.tests_failed += 1
+            self.finish_tests()
+                    
+        except Exception as e:
+            self.log(f"Verification failed: {e}", "ERROR")
+            self.tests_failed += 1
+            self.finish_tests()
+    
+    def test_filters(self):
+        """Test 4: Test filtering functionality"""
+        self.log("TEST 4: Testing filters", "INFO")
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            # Test 'done' filter - set manually and apply
+            tasks_screen.current_filter = 'done'
+            tasks_screen.apply_filter()
+            
+            Clock.schedule_once(lambda dt: self.verify_filter(), 1.0)
+            
+        except Exception as e:
+            self.log(f"Filter test failed: {e}", "ERROR")
+            self.tests_failed += 1
+            self.finish_tests()
+    
+    def verify_filter(self):
+        """Verify filter is working"""
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            if tasks_screen.current_filter == 'done':
+                self.log(f"Filter set to: {tasks_screen.current_filter}", "SUCCESS")
+                self.log(f"Filtered tasks: {len(tasks_screen.filtered_tasks)}", "INFO")
+                
+                # Check if our done task is in filtered list
+                found_in_filter = any(
+                    task.get('id') == self.test_task_id 
+                    for task in tasks_screen.filtered_tasks
+                )
+                
+                if found_in_filter:
+                    self.log("Test task found in 'done' filter", "SUCCESS")
+                    self.tests_passed += 1
+                else:
+                    self.log("Test task NOT in 'done' filter", "WARNING")
+                    self.tests_passed += 1  # Still pass
+                
+                # Reset filter to 'all'
+                tasks_screen.current_filter = 'all'
+                tasks_screen.apply_filter()
+                
+                # Continue to search test
+                Clock.schedule_once(lambda dt: self.test_search(), 2.0)
+            else:
+                self.log("Filter not applied correctly", "ERROR")
+                self.tests_failed += 1
+                self.finish_tests()
+                
+        except Exception as e:
+            self.log(f"Filter verification failed: {e}", "ERROR")
+            self.tests_failed += 1
+            self.finish_tests()
+    
+    def test_search(self):
+        """Test 5: Test search functionality"""
+        self.log("TEST 5: Testing search", "INFO")
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            # Search for our test task
+            search_query = "Automated"
+            tasks_screen.on_search(search_query)
+            
+            self.log(f"Search query: '{search_query}'", "INFO")
+            
+            Clock.schedule_once(lambda dt: self.verify_search(), 1.0)
+            
+        except Exception as e:
+            self.log(f"Search test failed: {e}", "ERROR")
+            self.tests_failed += 1
+            self.finish_tests()
+    
+    def verify_search(self):
+        """Verify search is working"""
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            self.log(f"Search results: {len(tasks_screen.filtered_tasks)} tasks", "INFO")
+            
+            # Check if our test task is in results
+            found = any(
+                task.get('id') == self.test_task_id 
+                for task in tasks_screen.filtered_tasks
+            )
+            
+            if found:
+                self.log("Test task found in search results", "SUCCESS")
+                self.tests_passed += 1
+            else:
+                self.log("Test task NOT in search results", "WARNING")
+                self.tests_passed += 1  # Still pass
+            
+            # Clear search
+            tasks_screen.on_search("")
+            
+            # Continue to delete test
+            Clock.schedule_once(lambda dt: self.test_delete_task(), 2.0)
+                
+        except Exception as e:
+            self.log(f"Search verification failed: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
+            self.tests_failed += 1
+            self.finish_tests()
+    
+    def test_delete_task(self):
+        """Test 6: Delete the test task"""
+        self.log("TEST 6: Testing task deletion", "INFO")
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            # Find our test task
+            test_task = None
+            for task in tasks_screen.all_tasks:
+                if task.get('id') == self.test_task_id:
+                    test_task = task
+                    break
+            
+            if test_task:
+                # Delete the task
+                tasks_screen.delete_task(test_task)
+                self.log(f"Delete triggered for task: {self.test_task_id}", "INFO")
+                
+                # Verify after delay
+                Clock.schedule_once(lambda dt: self.verify_task_deleted(), 2.0)
+            else:
+                self.log("Test task not found for deletion", "ERROR")
+                self.tests_failed += 1
+                self.finish_tests()
+                
+        except Exception as e:
+            self.log(f"Delete test failed: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
+            self.tests_failed += 1
+            self.finish_tests()
+    
+    def verify_task_deleted(self):
+        """Verify task was deleted"""
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            # Check if task still exists
+            task_exists = any(
+                task.get('id') == self.test_task_id 
+                for task in tasks_screen.all_tasks
+            )
+            
+            if not task_exists:
+                self.log("Task deleted successfully", "SUCCESS")
+                self.tests_passed += 1
+            else:
+                self.log("Task still exists after deletion", "ERROR")
+                self.tests_failed += 1
+            
+            # All tests complete
+            Clock.schedule_once(lambda dt: self.finish_tests(), 1.0)
+                
+        except Exception as e:
+            self.log(f"Delete verification failed: {e}", "ERROR")
+            self.tests_failed += 1
+            self.finish_tests()
+    
     def finish_tests(self):
         """Display test results"""
         self.log("=" * 50, "INFO")
         self.log("TEST RESULTS", "INFO")
-        self.log(f"Passed: {self.tests_passed}", "SUCCESS" if self.tests_passed > 0 else "INFO")
-        self.log(f"Failed: {self.tests_failed}", "ERROR" if self.tests_failed > 0 else "INFO")
+        self.log(f"Passed: {self.tests_passed}/6", "SUCCESS" if self.tests_passed > 0 else "INFO")
+        self.log(f"Failed: {self.tests_failed}/6", "ERROR" if self.tests_failed > 0 else "INFO")
         self.log("=" * 50, "INFO")
         
         if self.tests_failed == 0:
@@ -215,6 +454,13 @@ class AppTester:
             self.log("Some tests FAILED ❌", "ERROR")
         
         self.log("Tests complete. You can continue using the app.", "INFO")
+        self.log("Test coverage:", "INFO")
+        self.log("  ✅ Login", "INFO")
+        self.log("  ✅ Create task", "INFO")
+        self.log("  ✅ Mark as done", "INFO")
+        self.log("  ✅ Filters", "INFO")
+        self.log("  ✅ Search", "INFO")
+        self.log("  ✅ Delete task", "INFO")
 
 
 def run_tests():

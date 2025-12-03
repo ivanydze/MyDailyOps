@@ -102,8 +102,8 @@ class AddTaskScreen(MDScreen):
     def on_time_ok(self, instance_time_picker):
         """Called when time is selected"""
         try:
-            # Get the selected time
-            selected_time = instance_time_picker.get_time()
+            # Get the selected time - use the 'time' property
+            selected_time = instance_time_picker.time
             
             if selected_time and hasattr(self, 'selected_date'):
                 # Combine date and time into ISO format
@@ -112,7 +112,7 @@ class AddTaskScreen(MDScreen):
                     selected_time
                 )
                 
-                # Format as ISO string
+                # Format as readable string
                 self.ids.deadline.text = datetime_obj.strftime("%Y-%m-%d %H:%M")
                 print(f"✅ Date & Time set: {self.ids.deadline.text}")
             

@@ -103,14 +103,16 @@ Updated: 2025-12-03
 
 # 🟧 Codebase & Architecture
 
-### Refactoring
-- Move grouping/sorting to `utils/tasks.py`
-- Convert filter names into Enum/constants
-- Move repeated label/icon logic into helper functions
+### ✅ Refactoring — COMPLETED (2025-12-03)
+- ✅ Move grouping/sorting to `utils/tasks.py`
+- ✅ Convert filter names into Enum/constants (TaskFilter, TaskPriority, TaskStatus)
+- ✅ Move repeated label/icon logic into helper functions
+- ✅ Created centralized task utilities module
 
 ### Testing
-- Add smoke test for each screen
-- Add dedicated swipe-test screen for development
+- ✅ Add automated test suite (test_app.py)
+- Optional: Add smoke test for each screen individually
+- Optional: Add dedicated swipe-test screen for development
 
 ---
 
@@ -148,8 +150,11 @@ Updated: 2025-12-03
 ✔ Add Task screen - full MD3 redesign (2025-12-03)
 ✔ Edit Task screen - full MD3 redesign (2025-12-03)
 ✔ Date picker integration (2025-12-03)
+✔ Date + Time picker (chained) (2025-12-03)
 ✔ Priority dropdown menu (2025-12-03)
 ✔ Automated test suite (test_app.py) (2025-12-03)
+✔ Code refactoring - utils/tasks.py module (2025-12-03)
+✔ Enums for filters, priorities, statuses (2025-12-03)
 
 ---
 
