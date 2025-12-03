@@ -18,7 +18,7 @@ Window.size = (400, 700)
 class MyDailyOpsApp(MDApp):
 
     current_user = None
-    run_tests = True  # Set to True to run automated tests
+    run_tests = False  # Set to True to run automated tests
 
     def build(self):
         # Enable Material 3 theme BEFORE loading KV files
