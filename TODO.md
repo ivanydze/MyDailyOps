@@ -21,13 +21,27 @@ Updated: 2025-12-03
 - ✅ Add empty state
 - ✅ Improve spacing throughout
 
+### ✅ 3. Login Screen Improvements — COMPLETED (2025-12-03)
+- ✅ Fix text field placeholder visibility
+- ✅ Implement proper MDTextField structure (with child widgets)
+- ✅ Add keyboard navigation (TAB between fields)
+- ✅ Add ENTER key support (submit form)
+- ✅ Improve error messages
+- ✅ Add toast notifications for login
+
 ---
 
 # 🟦 UI / UX Enhancements
 
-### Theme
-- Implement Material 3 Light theme
-- Use MD3 color tokens (primary, surface, background, outline)
+### ✅ Theme — COMPLETED
+- ✅ Implement Material 3 Light theme
+- ✅ Use MD3 color tokens (primary, surface, background, outline)
+
+### ✅ Login Screen — COMPLETED
+- ✅ Proper text field styling with visible placeholders
+- ✅ Keyboard navigation (TAB/ENTER)
+- ✅ Error handling with colored messages
+- ✅ Helper text on focus
 
 ### ✅ Floating Action Button (Add Task) — COMPLETED
 - ✅ Add FAB in bottom-right corner
@@ -120,6 +134,9 @@ Updated: 2025-12-03
 ✔ Empty state (2025-12-03)
 ✔ Error handling for Supabase (2025-12-03)
 ✔ Ripple effects on buttons (2025-12-03)
+✔ Login screen MD3 styling (2025-12-03)
+✔ Text field placeholders fixed (2025-12-03)
+✔ Keyboard navigation - TAB and ENTER (2025-12-03)
 
 ---
 

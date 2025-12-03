@@ -60,6 +60,10 @@ MyDailyOps/
 ### Authentication
 - Email/password login with Supabase
 - Session stored in `app.current_user`
+- Material 3 login screen with proper text field styling
+- Keyboard navigation (TAB between fields, ENTER to submit)
+- Helper text and error messages
+- Toast notifications for login success/failure
 
 ### Task Management
 - Create, edit, delete tasks
@@ -107,12 +111,28 @@ MyDailyOps/
 - **MDFabButton** for floating action button
 - **MDButton**, **MDIconButton** for actions
 - **MDLabel** with separate `font_style` and `role` properties
+- **MDTextField** with **MDTextFieldHintText** and **MDTextFieldHelperText** child widgets
 
 ### Typography (KivyMD 2.0 Format)
-```python
-# Correct format
+```kv
+# Correct format for labels
 font_style: "Body"  # Options: Display, Headline, Title, Body, Label
 role: "large"       # Options: large, medium, small
+```
+
+### Text Fields (KivyMD 2.0 Format)
+```kv
+# Must use child widgets, NOT properties
+MDTextField:
+    mode: "outlined"
+    write_tab: False  # Allow TAB navigation
+    
+    MDTextFieldHintText:
+        text: "Placeholder text"
+    
+    MDTextFieldHelperText:
+        text: "Helper text"
+        mode: "on_focus"
 ```
 
 ### ScrollView Lists
@@ -145,6 +165,11 @@ Window target size: **400×700 pixels**
 
 **Core Functionality:**
 - ✅ MD3 migration to KivyMD 2.0.1.dev0
+- ✅ Login Screen with Material 3 design
+  - Proper text field styling (MDTextFieldHintText)
+  - Keyboard navigation (TAB and ENTER)
+  - Helper text and error messages
+  - Toast notifications
 - ✅ TaskCard implementation with MDCard
   - Priority color indicator (vertical bar)
   - Pin icon for pinned tasks
@@ -167,6 +192,7 @@ Window target size: **400×700 pixels**
 - ✅ User-friendly toast notifications
 - ✅ Proper separation of concerns (Python + KV)
 - ✅ Launcher script (run.bat) for easy startup
+- ✅ Keyboard event handling for accessibility
 
 ### 🎯 Working Features
 - Login/Authentication with Supabase

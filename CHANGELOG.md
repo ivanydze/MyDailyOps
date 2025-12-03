@@ -1,10 +1,11 @@
 # Changelog
 
-## [2025-12-03] - TaskCard Finalization & UI Polish
+## [2025-12-03] - TaskCard, UI Polish & Login Screen Improvements
 
 ### Added
 - ✅ **run.bat** — Windows launcher script (auto-activates venv)
 - ✅ **README.md** — Quick start guide and project overview
+- ✅ **KEYBOARD_SHORTCUTS.md** — Keyboard shortcuts documentation
 - ✅ **FAB (Floating Action Button)** — Quick task creation (MDFabButton)
 - ✅ **Filter Banner** — Shows active filter with clear button
 - ✅ **Empty State** — Helpful message when no tasks found
@@ -13,6 +14,8 @@
 - ✅ **Group Headers** — Now show task counts (e.g., "Today (3)")
 - ✅ **Ripple Effects** — All buttons have touch feedback
 - ✅ **Error Handling** — Try/catch blocks with toast notifications
+- ✅ **Keyboard Navigation** — TAB between fields, ENTER to submit
+- ✅ **Login Screen Polish** — Proper text field styling with visible placeholders
 
 ### Changed
 - 🔄 **TaskCard** — Migrated from non-existent MDSwipeItem to MDCard
@@ -28,6 +31,9 @@
 - 🐛 **Font Style Error** — Fixed BodySmall → font_style: "Body" + role: "small"
 - 🐛 **Launch Issues** — Created run.bat for reliable startup
 - 🐛 **Typography Errors** — All labels now use correct MD3 format
+- 🐛 **Text Field Placeholders** — Fixed invisible hint text using MDTextFieldHintText
+- 🐛 **TAB Navigation** — Implemented keyboard navigation with write_tab: False
+- 🐛 **ENTER Key** — Added on_text_validate for form submission
 
 ### Technical Details
 
@@ -47,6 +53,34 @@ font_style: "Body"
 role: "small"
 ```
 
+#### Text Field Structure (KivyMD 2.0)
+```kv
+# Old (doesn't work)
+MDTextField:
+    hint_text: "Email"
+
+# New (correct)
+MDTextField:
+    write_tab: False  # Enable TAB navigation
+    
+    MDTextFieldHintText:
+        text: "Email"
+    
+    MDTextFieldHelperText:
+        text: "Helper text"
+        mode: "on_focus"
+```
+
+#### Keyboard Navigation
+```python
+# TAB key handling
+Window.bind(on_key_down=self.on_keyboard_down)
+
+# ENTER key handling
+MDTextField:
+    on_text_validate: root.do_login()
+```
+
 #### Available Font Styles
 - Display: large, medium, small
 - Headline: large, medium, small
@@ -59,10 +93,13 @@ role: "small"
 - `app/widgets/task_card.kv` — Complete redesign with MD3
 - `app/ui/tasks_screen.kv` — Added FAB, filter banner, improved layout
 - `app/screens/tasks_screen.py` — Added empty state, error handling, better notifications
+- `app/ui/login_screen.kv` — Fixed text fields with MDTextFieldHintText
+- `app/screens/login_screen.py` — Added keyboard navigation and error handling
 - `SUMMARY.md` — Updated with current implementation status
 - `TODO.md` — Marked completed tasks
 - `run.bat` — NEW: Windows launcher
 - `README.md` — NEW: Quick start guide
+- `KEYBOARD_SHORTCUTS.md` — NEW: Keyboard shortcuts documentation
 - `CHANGELOG.md` — NEW: This file
 
 ### Documentation
