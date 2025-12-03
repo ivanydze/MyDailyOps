@@ -68,15 +68,23 @@ Updated: 2025-12-03
 
 # 🟩 Task CRUD Improvements
 
-### Add Task
-- Add validation for empty title
-- Toast: "Task created ✓"
-- Auto-refresh & auto-return to TasksScreen
+### ✅ Add Task — COMPLETED (2025-12-03)
+- ✅ Add validation for empty title
+- ✅ Toast: "Task created ✓"
+- ✅ Auto-refresh & auto-return to TasksScreen
+- ✅ Date and time picker
+- ✅ Priority dropdown menu
+- ✅ TAB navigation
+- ✅ Proper Material 3 styling
 
-### Edit Task
-- Add validation
-- Toast: "Updated ✓"
-- Update `updated_at` correctly
+### ✅ Edit Task — COMPLETED (2025-12-03)
+- ✅ Add validation
+- ✅ Toast: "Updated ✓"
+- ✅ Update `updated_at` correctly
+- ✅ Date and time picker
+- ✅ Priority dropdown menu
+- ✅ TAB navigation
+- ✅ Proper Material 3 styling
 
 ---
 
@@ -137,19 +145,27 @@ Updated: 2025-12-03
 ✔ Login screen MD3 styling (2025-12-03)
 ✔ Text field placeholders fixed (2025-12-03)
 ✔ Keyboard navigation - TAB and ENTER (2025-12-03)
+✔ Add Task screen - full MD3 redesign (2025-12-03)
+✔ Edit Task screen - full MD3 redesign (2025-12-03)
+✔ Date picker integration (2025-12-03)
+✔ Priority dropdown menu (2025-12-03)
+✔ Automated test suite (test_app.py) (2025-12-03)
 
 ---
 
 # 📌 Next Developer Action
 
 ### User Testing & Bug Fixes
-1. **Test all swipe gestures with real data** (see TESTING_CHECKLIST.md)
+1. **Test all features with real data** (see TESTING_CHECKLIST.md)
 2. **Verify performance with many tasks** (20+ items)
-3. **Test on different screen resolutions**
-4. **Fix any bugs found during testing**
+3. **Test date+time picker functionality**
+4. **Test priority dropdown in both Add/Edit screens**
+5. **Verify TAB navigation works everywhere**
+6. **Fix any bugs found during testing**
 
 Then proceed to:
-- Add Task / Edit Task screen validation improvements
+- Category dropdown (similar to priority)
 - Offline mode (SQLite cache)
 - Advanced features (drag & drop, templates)
+- Dark mode toggle
 

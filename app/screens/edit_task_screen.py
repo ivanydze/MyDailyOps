@@ -1,10 +1,11 @@
 from kivymd.uix.screen import MDScreen
-from kivymd.uix.pickers import MDModalDatePicker
+from kivymd.uix.pickers import MDModalDatePicker, MDTimePickerDialVertical
+from kivymd.uix.menu import MDDropdownMenu
 from kivy.app import App
 from kivy.core.window import Window
 from app.supabase.client import supabase
 from win10toast import ToastNotifier
-from datetime import datetime
+from datetime import datetime, time
 
 notifier = ToastNotifier()
 
@@ -12,6 +13,7 @@ notifier = ToastNotifier()
 class EditTaskScreen(MDScreen):
     task = None
     _keyboard_bound = False
+    priority_menu = None
     
     def on_enter(self):
         """Called when screen is displayed"""
@@ -56,14 +58,22 @@ class EditTaskScreen(MDScreen):
         self.ids.description.text = task.get("description", "") or ""
         self.ids.category.text = task.get("category", "") or ""
         
-        # Handle deadline format
+        # Handle deadline format - convert to readable format
         deadline = task.get("deadline", "")
         if deadline:
-            # Remove timezone if present: '2025-12-31T00:00:00+00:00' → '2025-12-31'
-            if 'T' in deadline:
-                deadline = deadline.split('T')[0]
-        self.ids.deadline.text = deadline or ""
+            try:
+                # Parse various formats
+                if 'T' in deadline:
+                    # ISO format: '2025-12-31T15:30:00+00:00' → '2025-12-31 15:30'
+                    dt = datetime.fromisoformat(deadline.replace('+00:00', ''))
+                    deadline = dt.strftime("%Y-%m-%d %H:%M")
+                # else keep as is (YYYY-MM-DD)
+            except Exception as e:
+                print(f"⚠️ Error parsing deadline: {e}")
+                if 'T' in deadline:
+                    deadline = deadline.split('T')[0]
         
+        self.ids.deadline.text = deadline or ""
         self.ids.priority.text = task.get("priority", "medium")
         self.ids.error.text = ""
     
@@ -74,20 +84,22 @@ class EditTaskScreen(MDScreen):
         self.date_dialog.open()
     
     def on_date_ok(self, instance_date_picker):
-        """Called when OK button is pressed in date picker"""
+        """Called when OK button is pressed in date picker - then open time picker"""
         try:
             # Get the selected date
             selected_date = instance_date_picker.get_date()[0]
             
-            # Convert to string format YYYY-MM-DD
             if selected_date:
-                self.ids.deadline.text = selected_date.strftime("%Y-%m-%d")
-                print(f"✅ Date selected: {self.ids.deadline.text}")
+                self.selected_date = selected_date
+                print(f"✅ Date selected: {selected_date}")
+                
+                # Close date picker
+                instance_date_picker.dismiss()
+                
+                # Open time picker
+                self.open_time_picker()
             else:
                 print("⚠️ No date selected")
-            
-            # Close the date picker
-            instance_date_picker.dismiss()
             
         except Exception as e:
             print(f"❌ Error setting date: {e}")
@@ -98,6 +110,72 @@ class EditTaskScreen(MDScreen):
         """Called when Cancel button is pressed"""
         print("Date picker cancelled")
         instance_date_picker.dismiss()
+    
+    def open_time_picker(self):
+        """Open time picker dialog after date is selected"""
+        self.time_dialog = MDTimePickerDialVertical()
+        self.time_dialog.bind(on_ok=self.on_time_ok, on_cancel=self.on_time_cancel)
+        self.time_dialog.open()
+    
+    def on_time_ok(self, instance_time_picker):
+        """Called when time is selected"""
+        try:
+            # Get the selected time
+            selected_time = instance_time_picker.get_time()
+            
+            if selected_time and hasattr(self, 'selected_date'):
+                # Combine date and time into ISO format
+                datetime_obj = datetime.combine(
+                    self.selected_date,
+                    selected_time
+                )
+                
+                # Format as readable string
+                self.ids.deadline.text = datetime_obj.strftime("%Y-%m-%d %H:%M")
+                print(f"✅ Date & Time set: {self.ids.deadline.text}")
+            
+            # Close time picker
+            instance_time_picker.dismiss()
+            
+        except Exception as e:
+            print(f"❌ Error setting time: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def on_time_cancel(self, instance_time_picker):
+        """Called when time picker is cancelled"""
+        print("Time picker cancelled")
+        instance_time_picker.dismiss()
+    
+    def open_priority_menu(self, caller):
+        """Open priority selection menu"""
+        menu_items = [
+            {
+                "text": "Low",
+                "on_release": lambda: self.set_priority("low"),
+            },
+            {
+                "text": "Medium",
+                "on_release": lambda: self.set_priority("medium"),
+            },
+            {
+                "text": "High",
+                "on_release": lambda: self.set_priority("high"),
+            },
+        ]
+        
+        self.priority_menu = MDDropdownMenu(
+            caller=caller,
+            items=menu_items,
+            width_mult=3
+        )
+        self.priority_menu.open()
+    
+    def set_priority(self, priority):
+        """Set selected priority"""
+        self.ids.priority.text = priority
+        self.priority_menu.dismiss()
+        print(f"✅ Priority set to: {priority}")
 
     def save_changes(self):
         new_title = self.ids.title.text.strip()
@@ -132,9 +210,14 @@ class EditTaskScreen(MDScreen):
         # Validate deadline format if provided
         if new_deadline:
             try:
-                datetime.strptime(new_deadline, "%Y-%m-%d")
+                # Try parsing as datetime first (YYYY-MM-DD HH:MM)
+                try:
+                    datetime.strptime(new_deadline, "%Y-%m-%d %H:%M")
+                except ValueError:
+                    # Fall back to date only (YYYY-MM-DD)
+                    datetime.strptime(new_deadline, "%Y-%m-%d")
             except ValueError:
-                self.ids.error.text = "⚠ Deadline must be in format: YYYY-MM-DD"
+                self.ids.error.text = "⚠ Invalid deadline format"
                 return
 
         try:

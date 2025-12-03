@@ -103,7 +103,7 @@
                             text: "Deadline (tap to select)"
                         
                         MDTextFieldHelperText:
-                            text: "Optional - Click to open date picker"
+                            text: "Optional - Click to select date and time"
                             mode: "persistent"
                     
                     MDIconButton:
@@ -113,24 +113,37 @@
                         on_release: root.open_date_picker()
                         pos_hint: {"center_y": 0.5}
 
-                # Priority Field
-                MDTextField:
-                    id: priority
-                    mode: "outlined"
-                    size_hint_x: 1
-                    multiline: False
-                    write_tab: False
-                    text_color_normal: 0, 0, 0, 0.87
-                    text_color_focus: 0.12, 0.46, 0.8, 1
-                    line_color_normal: 0, 0, 0, 0.38
-                    line_color_focus: 0.12, 0.46, 0.8, 1
+                # Priority Field (Dropdown)
+                MDBoxLayout:
+                    orientation: "horizontal"
+                    size_hint_y: None
+                    height: "56dp"
+                    spacing: "8dp"
                     
-                    MDTextFieldHintText:
-                        text: "Priority"
+                    MDTextField:
+                        id: priority
+                        mode: "outlined"
+                        multiline: False
+                        readonly: True
+                        text_color_normal: 0, 0, 0, 0.87
+                        text_color_focus: 0.12, 0.46, 0.8, 1
+                        line_color_normal: 0, 0, 0, 0.38
+                        line_color_focus: 0.12, 0.46, 0.8, 1
+                        on_focus: if self.focus: root.open_priority_menu(self)
+                        
+                        MDTextFieldHintText:
+                            text: "Priority (tap to select)"
+                        
+                        MDTextFieldHelperText:
+                            text: "Select: Low, Medium, or High"
+                            mode: "persistent"
                     
-                    MDTextFieldHelperText:
-                        text: "Optional - low, medium, or high"
-                        mode: "persistent"
+                    MDIconButton:
+                        icon: "menu-down"
+                        theme_icon_color: "Custom"
+                        icon_color: app.theme_cls.primaryColor
+                        on_release: root.open_priority_menu(priority)
+                        pos_hint: {"center_y": 0.5}
 
                 # Error Label
                 MDLabel:

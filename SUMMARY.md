@@ -69,7 +69,11 @@ MyDailyOps/
 - Create, edit, delete tasks
 - Mark as Done / Pending
 - Pin / Unpin
-- Assign priority, category, deadline
+- Assign priority (dropdown menu: Low/Medium/High)
+- Set category and description
+- Set deadline with Material 3 date picker
+- Automatic field clearing and validation
+- Toast notifications for all actions
 
 ### Organisation & UX
 - **Date grouping:** Today, Tomorrow, This Week, Later, No Deadline
@@ -170,6 +174,20 @@ Window target size: **400×700 pixels**
   - Keyboard navigation (TAB and ENTER)
   - Helper text and error messages
   - Toast notifications
+- ✅ Add Task Screen
+  - Material 3 styling with visible placeholders
+  - TAB navigation between all fields
+  - Date + Time picker (chained: date first, then time)
+  - Priority dropdown menu (Low/Medium/High)
+  - Input validation and error handling
+  - Auto-clear fields, toast notifications
+- ✅ Edit Task Screen
+  - Material 3 styling matching Add Task screen
+  - TAB navigation between all fields
+  - Date + Time picker (chained: date first, then time)
+  - Priority dropdown menu (Low/Medium/High)
+  - Handles timezone format from database (displays as YYYY-MM-DD HH:MM)
+  - Updates updated_at timestamp
 - ✅ TaskCard implementation with MDCard
   - Priority color indicator (vertical bar)
   - Pin icon for pinned tasks
@@ -192,7 +210,9 @@ Window target size: **400×700 pixels**
 - ✅ User-friendly toast notifications
 - ✅ Proper separation of concerns (Python + KV)
 - ✅ Launcher script (run.bat) for easy startup
-- ✅ Keyboard event handling for accessibility
+- ✅ Keyboard event handling for accessibility (TAB navigation)
+- ✅ Automated test suite (test_app.py) for quality assurance
+- ✅ Debug logging for troubleshooting
 
 ### 🎯 Working Features
 - Login/Authentication with Supabase
