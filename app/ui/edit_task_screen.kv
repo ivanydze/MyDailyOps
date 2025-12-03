@@ -1,0 +1,47 @@
+<EditTaskScreen>:
+    name: "edit_task"
+
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: dp(20)
+        spacing: dp(10)
+
+        MDTopAppBar:
+            title: "Edit Task"
+            left_action_items: [["arrow-left", lambda x: app.go_to_tasks()]]
+
+        MDTextField:
+            id: title
+            hint_text: "Title"
+            mode: "outlined"
+
+        MDTextField:
+            id: description
+            hint_text: "Description"
+            mode: "outlined"
+
+        MDTextField:
+            id: category
+            hint_text: "Category"
+            mode: "outlined"
+
+        MDTextField:
+            id: deadline
+            hint_text: "Deadline (YYYY-MM-DD)"
+            mode: "outlined"
+
+        MDTextField:
+            id: priority
+            hint_text: "Priority (low, medium, high)"
+            mode: "outlined"
+
+        MDLabel:
+            id: error
+            text: ""
+            theme_text_color: "Error"
+            halign: "center"
+
+        MDButton:
+            text: "Save Changes"
+            on_release: root.save_changes()
+            style: "filled"

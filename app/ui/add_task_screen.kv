@@ -1,0 +1,49 @@
+<AddTaskScreen>:
+    name: "add_task"
+
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: 20
+        spacing: 20
+
+        MDTopAppBar:
+            title: "Add Task"
+            elevation: 4
+            left_action_items: [["arrow-left", lambda x: app.go_to_tasks()]]
+
+        MDTextField:
+            id: title
+            hint_text: "Title"
+            mode: "outlined"
+
+        MDTextField:
+            id: description
+            hint_text: "Description"
+            mode: "outlined"
+
+        MDTextField:
+            id: category
+            hint_text: "Category"
+            mode: "outlined"
+
+        MDTextField:
+            id: deadline
+            hint_text: "Deadline (YYYY-MM-DD)"
+            mode: "outlined"
+
+        MDTextField:
+            id: priority
+            hint_text: "Priority (low, medium, high)"
+            mode: "outlined"
+
+        MDLabel:
+            id: error
+            text: ""
+            theme_text_color: "Error"
+            halign: "center"
+
+        MDButton:
+            text: "Save"
+            pos_hint: {"center_x": 0.5}
+            on_release: root.save_task()
+            style: "filled"

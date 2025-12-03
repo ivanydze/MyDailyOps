@@ -1,0 +1,41 @@
+<LoginScreen>:
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: dp(30)
+        spacing: dp(20)
+
+        Widget:
+            size_hint_y: 0.25
+
+        MDLabel:
+            text: "MyDailyOps"
+            halign: "center"
+            font_size: "32sp"
+            bold: True
+            theme_text_color: "Primary"
+
+        MDTextField:
+            id: email
+            hint_text: "Email"
+            mode: "outlined"
+            size_hint_x: .9
+            pos_hint: {"center_x": .5}
+
+        MDTextField:
+            id: password
+            hint_text: "Password"
+            password: True
+            mode: "outlined"
+            size_hint_x: .9
+            pos_hint: {"center_x": .5}
+
+        MDButton:
+            text: "Login"
+            style: "filled"
+            size_hint: (.5, None)
+            height: "48dp"
+            pos_hint: {"center_x": .5}
+            on_release: root.do_login()
+
+        Widget:
+            size_hint_y: 0.75

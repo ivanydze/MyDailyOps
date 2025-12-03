@@ -1,0 +1,118 @@
+#:import rgba kivy.utils.rgba
+
+<TaskCard>:
+    size_hint_y: None
+    height: "88dp"
+    radius: "12dp"
+    md_bg_color: app.theme_cls.surfaceContainerLowestColor if not root.is_done else app.theme_cls.surfaceContainerColor
+    
+    # Swipe left to mark as done/undone
+    SwipeLeft:
+        MDBoxLayout:
+            adaptive_width: True
+            padding: "16dp"
+            md_bg_color: 0.3, 0.69, 0.31, 1  # Green
+            radius: [12, 0, 0, 12]
+            
+            MDIconButton:
+                icon: "check" if not root.is_done else "restore"
+                icon_size: "32sp"
+                theme_icon_color: "Custom"
+                icon_color: 1, 1, 1, 1
+                ripple_scale: 2
+                on_release: root.mark_done()
+
+    # Main content area
+    MDBoxLayout:
+        orientation: "horizontal"
+        padding: "16dp", "12dp"
+        spacing: "12dp"
+        
+        # Priority indicator (vertical colored bar)
+        MDWidget:
+            size_hint_x: None
+            width: "4dp"
+            canvas.before:
+                Color:
+                    rgba: root.get_priority_color()
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [2]
+        
+        # Status icon button
+        MDIconButton:
+            icon: root.get_status_icon()
+            theme_icon_color: "Custom"
+            icon_color: root.get_priority_color() if not root.is_done else app.theme_cls.onSurfaceColor
+            icon_size: "28sp"
+            ripple_scale: 1.5
+            size_hint_x: None
+            width: "48dp"
+            on_release: root.mark_done()
+        
+        # Task text content
+        MDBoxLayout:
+            orientation: "vertical"
+            spacing: "4dp"
+            padding: 0, "4dp"
+            
+            MDLabel:
+                text: root.title
+                font_style: "BodyLarge"
+                bold: True
+                theme_text_color: "Custom"
+                text_color: app.theme_cls.onSurfaceColor if not root.is_done else app.theme_cls.onSurfaceVariantColor
+                opacity: 1 if not root.is_done else 0.6
+                size_hint_y: None
+                height: self.texture_size[1]
+                text_size: self.width, None
+                max_lines: 2
+                shorten: True
+                shorten_from: "right"
+            
+            MDLabel:
+                text: root.subtitle
+                font_style: "BodySmall"
+                theme_text_color: "Secondary"
+                size_hint_y: None
+                height: self.texture_size[1]
+                text_size: self.width, None
+                max_lines: 1
+                shorten: True
+                shorten_from: "right"
+        
+        # Pin indicator (if pinned)
+        MDIcon:
+            icon: "pin"
+            size_hint_x: None
+            width: "24dp" if root.is_pinned else 0
+            opacity: 1 if root.is_pinned else 0
+            theme_icon_color: "Custom"
+            icon_color: app.theme_cls.primaryColor
+            icon_size: "20sp"
+    
+    # Swipe right to edit or delete
+    SwipeRight:
+        MDBoxLayout:
+            adaptive_width: True
+            spacing: "8dp"
+            padding: "16dp"
+            md_bg_color: app.theme_cls.primaryColor
+            radius: [0, 12, 12, 0]
+            
+            MDIconButton:
+                icon: "pencil"
+                icon_size: "28sp"
+                theme_icon_color: "Custom"
+                icon_color: 1, 1, 1, 1
+                ripple_scale: 2
+                on_release: root.edit()
+            
+            MDIconButton:
+                icon: "delete"
+                icon_size: "28sp"
+                theme_icon_color: "Custom"
+                icon_color: 1, 1, 1, 1
+                ripple_scale: 2
+                on_release: root.delete()
