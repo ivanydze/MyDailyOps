@@ -69,10 +69,11 @@ MyDailyOps/
 
 ### Organisation & UX
 - **Date grouping:** Today, Tomorrow, This Week, Later, No Deadline
-- **Filtering:** All, New, Done, Pinned, Priority
+- **Filtering:** All, New, Done, Pinned, Priority (with filter banner)
 - **Sorting:** Pinned → Status → Priority → Created
-- **Real-time search**
-- **Swipe actions (MD3):** Left = Done, Right = Edit/Delete
+- **Real-time search** with expandable search field
+- **Task actions:** Always-visible buttons for mark done, edit, and delete
+- **FAB button:** Quick add task from bottom-right corner
 
 ### Notifications
 - Deadline notifications
@@ -98,48 +99,90 @@ MyDailyOps/
 
 ---
 
-## 🔧 Material 3 Migration Notes
+## 🔧 Material 3 Implementation Notes
 
-- Old widgets removed (MDToolbar, MDRaisedButton, etc.)
-- Uses **MDTopAppBar**, **MDButton(style=...)**, MD3 typography
-- **Swipe now uses MDSwipeItem**, not legacy SwiperItem
-- ScrollView lists require:
-  - `size_hint_y: None`
-  - `height: self.minimum_height`
+### Widgets Used (KivyMD 2.0.1.dev0)
+- **MDTopAppBar** for app bar (replaces MDToolbar)
+- **MDCard** for task cards (base widget)
+- **MDFabButton** for floating action button
+- **MDButton**, **MDIconButton** for actions
+- **MDLabel** with separate `font_style` and `role` properties
+
+### Typography (KivyMD 2.0 Format)
+```python
+# Correct format
+font_style: "Body"  # Options: Display, Headline, Title, Body, Label
+role: "large"       # Options: large, medium, small
+```
+
+### ScrollView Lists
+- Require `size_hint_y: None`
+- Require `height: self.minimum_height`
+- Child widgets need `adaptive_height: True` or fixed height
 
 ---
 
 ## ▶ Running the App
 
+### Windows (Recommended)
+```batch
+run.bat
 ```
+
+### Manual
+```batch
 .\venv\Scripts\activate
 python main.py
 ```
 
-Window target size: **430×720**
+Window target size: **400×700 pixels**
 
 ---
 
 ## 📌 Current Status (2025-12-03)
 
-- MD3 migration — **DONE**
-- TaskCard swipe rewrite — **DONE** ✅
-- TaskCard MD3 polish — **DONE** ✅
-  - Priority color indicator
-  - Pin icon for pinned tasks
-  - Ripple effects on buttons
-  - Improved typography and spacing
-  - Swipe gestures (left: done/undone, right: edit/delete)
-- Black screen issue — **FIXED**
-- Grouping / Search / Filter / Sort — **WORKING**
-- UI polish — **DONE** ✅
-  - FAB (Floating Action Button)
-  - Filter banner
-  - Empty state
-  - Improved spacing and colors
-  - Better group headers
-- Error handling — **DONE** ✅
-  - Try/except blocks for Supabase
-  - User-friendly toast notifications
+### ✅ Completed Features
 
-**Next:** User testing and bug fixes (see TESTING_CHECKLIST.md)
+**Core Functionality:**
+- ✅ MD3 migration to KivyMD 2.0.1.dev0
+- ✅ TaskCard implementation with MDCard
+  - Priority color indicator (vertical bar)
+  - Pin icon for pinned tasks
+  - Ripple effects on all buttons
+  - Proper MD3 typography (font_style + role)
+  - Always-visible action buttons (status, edit, delete)
+- ✅ Black screen issue — FIXED
+- ✅ Grouping / Search / Filter / Sort — WORKING
+  
+**UI Enhancements:**
+- ✅ FAB (MDFabButton) for quick task creation
+- ✅ Filter banner showing active filter
+- ✅ Empty state with helpful message
+- ✅ Improved spacing and MD3 colors
+- ✅ Group headers with task counts
+- ✅ Expandable search field
+
+**Code Quality:**
+- ✅ Error handling with try/except blocks
+- ✅ User-friendly toast notifications
+- ✅ Proper separation of concerns (Python + KV)
+- ✅ Launcher script (run.bat) for easy startup
+
+### 🎯 Working Features
+- Login/Authentication with Supabase
+- Task CRUD operations
+- Date-based grouping
+- Priority filtering (High/Medium/Low)
+- Status filtering (All/New/Done/Pinned)
+- Real-time search
+- Deadline notifications
+- Task completion toasts
+
+### 📋 Next Steps
+1. **User Testing** — Follow TESTING_CHECKLIST.md
+2. **Bug Fixes** — Address any issues found
+3. **Add/Edit Task Screen** validation improvements
+4. **Offline Mode** — SQLite cache + background sync
+
+### 🐛 Known Issues
+- None currently (app launches and runs successfully)

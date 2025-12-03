@@ -20,11 +20,11 @@ class MyDailyOpsApp(MDApp):
     current_user = None
 
     def build(self):
-        # Включаем тему МАТЕРИАЛ 3 ДО загрузки KV
+        # Enable Material 3 theme BEFORE loading KV files
         self.theme_cls.material_style = "M3"
-        self.theme_cls.theme_style = "Light"
+        self.theme_cls.theme_style = "Light"  # Light theme for better visibility
         self.theme_cls.primary_palette = "Blue"
-        self.theme_cls.primary_hue = "500"
+        self.theme_cls.primary_hue = "600"
 
         # Теперь можно грузить KV
         Builder.load_file("app/ui/login_screen.kv")
