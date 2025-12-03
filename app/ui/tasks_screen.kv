@@ -39,7 +39,8 @@
             
             MDLabel:
                 text: f"Filtered: {root.current_filter.capitalize()}"
-                font_style: "BodySmall"
+                font_style: "Body"
+                role: "small"
                 theme_text_color: "Custom"
                 text_color: app.theme_cls.onSecondaryContainerColor
                 size_hint_x: 0.9
@@ -64,12 +65,11 @@
                 spacing: "8dp"
     
     # Floating Action Button (Add Task)
-    MDFloatingActionButton:
+    MDFabButton:
         icon: "plus"
         style: "large"
         md_bg_color: app.theme_cls.primaryColor
         theme_icon_color: "Custom"
         icon_color: app.theme_cls.onPrimaryColor
         pos_hint: {"center_x": 0.9, "center_y": 0.1}
-        elevation: 3
         on_release: root.open_add_task()

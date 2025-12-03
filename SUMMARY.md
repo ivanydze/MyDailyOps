@@ -123,7 +123,23 @@ Window target size: **430×720**
 ## 📌 Current Status (2025-12-03)
 
 - MD3 migration — **DONE**
-- TaskCard swipe rewrite — **DONE**
+- TaskCard swipe rewrite — **DONE** ✅
+- TaskCard MD3 polish — **DONE** ✅
+  - Priority color indicator
+  - Pin icon for pinned tasks
+  - Ripple effects on buttons
+  - Improved typography and spacing
+  - Swipe gestures (left: done/undone, right: edit/delete)
 - Black screen issue — **FIXED**
 - Grouping / Search / Filter / Sort — **WORKING**
-- UI polish — **IN PROGRESS**
+- UI polish — **DONE** ✅
+  - FAB (Floating Action Button)
+  - Filter banner
+  - Empty state
+  - Improved spacing and colors
+  - Better group headers
+- Error handling — **DONE** ✅
+  - Try/except blocks for Supabase
+  - User-friendly toast notifications
+
+**Next:** User testing and bug fixes (see TESTING_CHECKLIST.md)

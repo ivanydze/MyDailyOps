@@ -1,8 +1,8 @@
-from kivymd.uix.swipeitem import MDSwipeItem
+from kivymd.uix.card import MDCard
 from kivy.properties import ObjectProperty, StringProperty, BooleanProperty
 
 
-class TaskCard(MDSwipeItem):
+class TaskCard(MDCard):
     """
     Material 3 Task Card with swipe gestures.
     

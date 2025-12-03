@@ -1,28 +1,10 @@
-#:import rgba kivy.utils.rgba
-
 <TaskCard>:
     size_hint_y: None
     height: "88dp"
     radius: "12dp"
     md_bg_color: app.theme_cls.surfaceContainerLowestColor if not root.is_done else app.theme_cls.surfaceContainerColor
+    elevation: 1
     
-    # Swipe left to mark as done/undone
-    SwipeLeft:
-        MDBoxLayout:
-            adaptive_width: True
-            padding: "16dp"
-            md_bg_color: 0.3, 0.69, 0.31, 1  # Green
-            radius: [12, 0, 0, 12]
-            
-            MDIconButton:
-                icon: "check" if not root.is_done else "restore"
-                icon_size: "32sp"
-                theme_icon_color: "Custom"
-                icon_color: 1, 1, 1, 1
-                ripple_scale: 2
-                on_release: root.mark_done()
-
-    # Main content area
     MDBoxLayout:
         orientation: "horizontal"
         padding: "16dp", "12dp"
@@ -59,7 +41,8 @@
             
             MDLabel:
                 text: root.title
-                font_style: "BodyLarge"
+                font_style: "Body"
+                role: "large"
                 bold: True
                 theme_text_color: "Custom"
                 text_color: app.theme_cls.onSurfaceColor if not root.is_done else app.theme_cls.onSurfaceVariantColor
@@ -73,7 +56,8 @@
             
             MDLabel:
                 text: root.subtitle
-                font_style: "BodySmall"
+                font_style: "Body"
+                role: "small"
                 theme_text_color: "Secondary"
                 size_hint_y: None
                 height: self.texture_size[1]
@@ -91,28 +75,24 @@
             theme_icon_color: "Custom"
             icon_color: app.theme_cls.primaryColor
             icon_size: "20sp"
-    
-    # Swipe right to edit or delete
-    SwipeRight:
-        MDBoxLayout:
-            adaptive_width: True
-            spacing: "8dp"
-            padding: "16dp"
-            md_bg_color: app.theme_cls.primaryColor
-            radius: [0, 12, 12, 0]
-            
-            MDIconButton:
-                icon: "pencil"
-                icon_size: "28sp"
-                theme_icon_color: "Custom"
-                icon_color: 1, 1, 1, 1
-                ripple_scale: 2
-                on_release: root.edit()
-            
-            MDIconButton:
-                icon: "delete"
-                icon_size: "28sp"
-                theme_icon_color: "Custom"
-                icon_color: 1, 1, 1, 1
-                ripple_scale: 2
-                on_release: root.delete()
+        
+        # Action buttons
+        MDIconButton:
+            icon: "pencil"
+            icon_size: "24sp"
+            theme_icon_color: "Custom"
+            icon_color: app.theme_cls.primaryColor
+            ripple_scale: 1.5
+            size_hint_x: None
+            width: "48dp"
+            on_release: root.edit()
+        
+        MDIconButton:
+            icon: "delete"
+            icon_size: "24sp"
+            theme_icon_color: "Custom"
+            icon_color: app.theme_cls.errorColor
+            ripple_scale: 1.5
+            size_hint_x: None
+            width: "48dp"
+            on_release: root.delete()

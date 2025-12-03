@@ -131,17 +131,19 @@ class TasksScreen(MDScreen):
             
             empty_label = MDLabel(
                 text="No tasks found",
-                font_style="TitleMedium",
+                font_style="Title",
                 halign="center",
                 theme_text_color="Secondary"
             )
+            empty_label.role = "medium"
             
             empty_hint = MDLabel(
                 text="Tap the + button to add a new task",
-                font_style="BodySmall",
+                font_style="Body",
                 halign="center",
                 theme_text_color="Hint"
             )
+            empty_hint.role = "small"
             
             empty_box.add_widget(empty_icon)
             empty_box.add_widget(empty_label)
@@ -161,14 +163,14 @@ class TasksScreen(MDScreen):
                 padding=["8dp", "16dp", "8dp", "8dp"],
             )
 
-            header.add_widget(
-                MDLabel(
-                    text=f"{group_name} ({len(items)})",
-                    font_style="TitleMedium",
-                    bold=True,
-                    theme_text_color="Primary"
-                )
+            header_label = MDLabel(
+                text=f"{group_name} ({len(items)})",
+                font_style="Title",
+                bold=True,
+                theme_text_color="Primary"
             )
+            header_label.role = "medium"
+            header.add_widget(header_label)
 
             lst.add_widget(header)
 
