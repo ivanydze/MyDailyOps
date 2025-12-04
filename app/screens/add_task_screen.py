@@ -5,8 +5,10 @@ from kivy.app import App
 from kivy.core.window import Window
 from app.supabase.client import supabase
 from app.utils.tasks import get_predefined_categories, TaskCategory
+from app.database.offline import cache_upsert, add_pending_update
 from win10toast import ToastNotifier
 from datetime import datetime, date, time
+import uuid
 
 notifier = ToastNotifier()
 
@@ -262,8 +264,10 @@ class AddTaskScreen(MDScreen):
                 return
             
             user_id = user.id
-
-            result = supabase.table("tasks").insert({
+            
+            # Create task with unique ID
+            task = {
+                "id": str(uuid.uuid4()),
                 "user_id": user_id,
                 "title": title,
                 "description": description,
@@ -271,10 +275,18 @@ class AddTaskScreen(MDScreen):
                 "deadline": deadline_value,
                 "priority": priority,
                 "status": "new",
-                "pinned": False
-            }).execute()
-
-            print(f"✔ TASK SAVED: {title} (Result: {result})")
+                "pinned": False,
+                "created_at": datetime.utcnow().isoformat() + "+00:00",
+                "updated_at": datetime.utcnow().isoformat() + "+00:00",
+            }
+            
+            # Save to offline cache
+            cache_upsert(task)
+            
+            # Add to sync queue
+            add_pending_update("create", task)
+            
+            print(f"✔ TASK SAVED: {title}")
 
             # Success notification
             notifier.show_toast(

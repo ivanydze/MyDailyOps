@@ -21,6 +21,8 @@ from app.utils.tasks import (
     parse_deadline,
     TaskFilter
 )
+from app.database.offline import init_db, cache_get_all, cache_upsert, cache_delete, add_pending_update
+from app.utils.sync import sync_now
 
 notifier = ToastNotifier()
 
@@ -63,9 +65,9 @@ class TasksScreen(MDScreen):
         self.open_filter_menu(button)
     
     def btn_reload_click(self):
-        """Called from RELOAD button"""
+        """Called from RELOAD button - triggers sync"""
         print("🔘 RELOAD button clicked!")
-        self.load_tasks()
+        self.sync_tasks()
     
     def open_settings(self):
         """Open settings dialog"""
@@ -99,6 +101,7 @@ class TasksScreen(MDScreen):
     # -------------------------
     @mainthread
     def load_tasks(self):
+        """Load tasks from SQLite cache (offline-first)"""
         print("🔄 load_tasks() called!")
         app = App.get_running_app()
         user = app.current_user
@@ -108,14 +111,20 @@ class TasksScreen(MDScreen):
             return
 
         try:
-            response = supabase.table("tasks") \
-                .select("*") \
-                .eq("user_id", user.id) \
-                .order("created_at", desc=True) \
-                .execute()
-
-            self.all_tasks = response.data
-            print(f"✅ Loaded {len(self.all_tasks)} tasks from database")
+            # Initialize database if needed
+            init_db()
+            
+            # Load from local cache
+            self.all_tasks = cache_get_all()
+            
+            # If cache is empty, try initial sync from Supabase
+            if len(self.all_tasks) == 0:
+                print("ℹ️ Cache is empty, performing initial sync...")
+                success = sync_now(user.id)
+                if success:
+                    self.all_tasks = cache_get_all()
+            
+            print(f"✅ Loaded {len(self.all_tasks)} tasks from cache")
             
             # Apply filter to populate filtered_tasks
             self.apply_filter()
@@ -129,11 +138,54 @@ class TasksScreen(MDScreen):
             traceback.print_exc()
             notifier.show_toast(
                 "Error",
-                "Failed to load tasks. Check your connection.",
+                "Failed to load tasks from cache.",
                 duration=3,
                 threaded=True
             )
 
+    @mainthread
+    def sync_tasks(self):
+        """Sync with Supabase and reload from cache"""
+        print("🔄 sync_tasks() called!")
+        app = App.get_running_app()
+        user = app.current_user
+
+        if not user:
+            print("❌ No logged user")
+            return
+
+        try:
+            # Perform sync
+            success = sync_now(user.id)
+            
+            if success:
+                # Reload from cache
+                self.all_tasks = cache_get_all()
+                self.apply_filter()
+                
+                notifier.show_toast(
+                    "Sync Complete",
+                    f"Synced {len(self.all_tasks)} tasks",
+                    duration=2,
+                    threaded=True
+                )
+            else:
+                notifier.show_toast(
+                    "Sync Error",
+                    "Failed to sync with server",
+                    duration=3,
+                    threaded=True
+                )
+                
+        except Exception as e:
+            print(f"❌ Error syncing: {e}")
+            notifier.show_toast(
+                "Sync Error",
+                "Failed to sync tasks",
+                duration=3,
+                threaded=True
+            )
+    
     def check_notifications(self):
         """Check for tasks due today and show notifications"""
         today = date.today()
@@ -297,9 +349,14 @@ class TasksScreen(MDScreen):
         app.root.current = "add_task"
 
     def delete_task(self, task):
-        """Delete a task from Supabase"""
+        """Delete a task (offline-first)"""
         try:
-            supabase.table("tasks").delete().eq("id", task["id"]).execute()
+            # Delete from cache
+            cache_delete(task["id"])
+            
+            # Add to sync queue
+            add_pending_update("delete", task["id"])
+            
             notifier.show_toast(
                 "Task Deleted",
                 f"'{task['title']}' has been deleted",
@@ -317,11 +374,20 @@ class TasksScreen(MDScreen):
             )
 
     def toggle_done(self, task):
-        """Toggle task status between done and new"""
+        """Toggle task status between done and new (offline-first)"""
         new_status = "done" if task.get("status") != "done" else "new"
         
         try:
-            supabase.table("tasks").update({"status": new_status}).eq("id", task["id"]).execute()
+            # Update task data
+            updated_task = task.copy()
+            updated_task["status"] = new_status
+            updated_task["updated_at"] = datetime.utcnow().isoformat() + "+00:00"
+            
+            # Save to offline cache
+            cache_upsert(updated_task)
+            
+            # Add to sync queue
+            add_pending_update("update", updated_task)
             
             # Notification when marking as done
             if new_status == "done":

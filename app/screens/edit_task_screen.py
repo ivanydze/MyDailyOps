@@ -5,6 +5,7 @@ from kivy.app import App
 from kivy.core.window import Window
 from app.supabase.client import supabase
 from app.utils.tasks import get_predefined_categories, TaskCategory
+from app.database.offline import cache_upsert, add_pending_update
 from win10toast import ToastNotifier
 from datetime import datetime, time
 
@@ -268,15 +269,23 @@ class EditTaskScreen(MDScreen):
                 return
 
         try:
-            supabase.table("tasks").update({
+            # Update task data
+            updated_task = self.task.copy()
+            updated_task.update({
                 "title": new_title,
                 "description": new_description,
                 "category": new_category,
                 "deadline": new_deadline if new_deadline else None,
                 "priority": new_priority,
-                "updated_at": datetime.now().isoformat()
-            }).eq("id", self.task["id"]).execute()
-
+                "updated_at": datetime.utcnow().isoformat() + "+00:00"
+            })
+            
+            # Save to offline cache
+            cache_upsert(updated_task)
+            
+            # Add to sync queue
+            add_pending_update("update", updated_task)
+            
             print(f"✔ TASK UPDATED: {new_title}")
 
             # Success notification
