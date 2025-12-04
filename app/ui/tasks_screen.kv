@@ -1,76 +1,156 @@
 <TasksScreen>:
-    md_bg_color: app.theme_cls.backgroundColor
+    name: "tasks"
     
-    MDBoxLayout:
-        orientation: "vertical"
-
-        # Top App Bar
-        MDTopAppBar:
-            title: "My Tasks"
-            md_bg_color: app.theme_cls.surfaceContainerColor
-            elevation: 0
-            type_height: "small"
-            left_action_items: [["magnify", lambda x: root.toggle_search(), "Search tasks"]]
-            right_action_items: [["filter-variant", lambda x: root.open_filter_menu(x), "Filter"], ["refresh", lambda x: root.load_tasks(), "Refresh"]]
-
-        # Search field (expandable)
+    FloatLayout:
+        # Main content
         MDBoxLayout:
-            id: search_field
-            size_hint_y: None
-            height: "0dp"
-            opacity: 0
-            padding: "16dp", "8dp", "16dp", "8dp"
-            md_bg_color: app.theme_cls.surfaceContainerColor
-
-            MDTextField:
-                mode: "outlined"
-                hint_text: "Search tasks..."
-                on_text: root.on_search(self.text)
-                radius: [8]
-
-        # Filter banner (shows when filter is active)
-        MDBoxLayout:
-            id: filter_banner
-            size_hint_y: None
-            height: "36dp" if root.current_filter != "all" else "0dp"
-            opacity: 1 if root.current_filter != "all" else 0
-            padding: "16dp", "8dp"
-            md_bg_color: app.theme_cls.secondaryContainerColor
+            orientation: "vertical"
             
-            MDLabel:
-                text: f"Filtered: {root.current_filter.capitalize()}"
-                font_style: "Body"
-                role: "small"
-                theme_text_color: "Custom"
-                text_color: app.theme_cls.onSecondaryContainerColor
-                size_hint_x: 0.9
+            # Spacer for top bar
+            Widget:
+                size_hint_y: None
+                height: "56dp"
+            
+            # Search bar (expandable)
+            MDBoxLayout:
+                id: search_bar
+                size_hint_y: None
+                height: "0dp"
+                opacity: 0
+                padding: "16dp", "8dp", "16dp", "8dp"
+                md_bg_color: app.theme_cls.surfaceContainerColor
+                
+                MDBoxLayout:
+                    orientation: "horizontal"
+                    spacing: "8dp"
+                    
+                    MDTextField:
+                        id: search_input
+                        mode: "outlined"
+                        multiline: False
+                        text_color_normal: 0, 0, 0, 0.87
+                        text_color_focus: 0.12, 0.46, 0.8, 1
+                        line_color_normal: 0, 0, 0, 0.38
+                        line_color_focus: 0.12, 0.46, 0.8, 1
+                        on_text: root.apply_search(self.text)
+                        
+                        MDTextFieldHintText:
+                            text: "Search tasks..."
+                        
+                        MDTextFieldHelperText:
+                            text: "Search by title or description"
+                            mode: "persistent"
+                    
+                    Button:
+                        text: "X"
+                        size_hint_x: None
+                        width: "40dp"
+                        background_normal: ""
+                        background_color: 0.8, 0.2, 0.2, 1
+                        color: 1, 1, 1, 1
+                        font_size: "14sp"
+                        bold: True
+                        on_press: root.clear_search()
+            
+            # Filter banner (shows when filter is active)
+            MDBoxLayout:
+                id: filter_banner
+                size_hint_y: None
+                height: "36dp" if root.current_filter != "all" else "0dp"
+                opacity: 1 if root.current_filter != "all" else 0
+                padding: "16dp", "8dp"
+                md_bg_color: app.theme_cls.secondaryContainerColor
+                
+                MDLabel:
+                    text: f"Filter: {root.current_filter.capitalize()}"
+                    font_style: "Label"
+                    role: "medium"
+                    theme_text_color: "Custom"
+                    text_color: app.theme_cls.onSecondaryContainerColor
+                    size_hint_x: 0.9
+                
+                Button:
+                    text: "X"
+                    size_hint_x: None
+                    width: "32dp"
+                    background_normal: ""
+                    background_color: 0.6, 0.3, 0.3, 1
+                    color: 1, 1, 1, 1
+                    font_size: "12sp"
+                    bold: True
+                    on_press: root.set_filter("all")
+            
+            # Task list scroll area
+            MDScrollView:
+                do_scroll_x: False
+                bar_width: "4dp"
+                bar_color: app.theme_cls.primaryColor
+                
+                MDBoxLayout:
+                    id: tasks_list
+                    orientation: "vertical"
+                    adaptive_height: True
+                    padding: "16dp", "16dp", "16dp", "80dp"
+                    spacing: "8dp"
+        
+        # Top bar (overlayed on top - always visible)
+        BoxLayout:
+            size_hint: 1, None
+            height: "56dp"
+            pos_hint: {"top": 1}
+            padding: "12dp", "8dp"
+            spacing: "4dp"
+            canvas.before:
+                Color:
+                    rgba: 0.12, 0.46, 0.8, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            
+            Label:
+                text: "MyDailyOps"
+                font_size: "20sp"
+                bold: True
+                color: 1, 1, 1, 1
+                size_hint_x: 0.5
+            
+            Widget:
             
             MDIconButton:
-                icon: "close"
-                icon_size: "20sp"
-                size_hint_x: None
-                width: "32dp"
-                on_release: root.set_filter("all")
-
-        # Task list scroll area
-        ScrollView:
-            do_scroll_x: False
+                icon: "magnify"
+                theme_icon_color: "Custom"
+                icon_color: 1, 1, 1, 1
+                icon_size: "24sp"
+                size_hint: None, None
+                size: "48dp", "48dp"
+                on_release: root.btn_search_click()
             
-            MDBoxLayout:
-                id: tasks_list
-                orientation: "vertical"
-                size_hint_y: None
-                height: self.minimum_height
-                padding: "16dp", "16dp", "16dp", "80dp"  # Bottom padding for FAB
-                spacing: "8dp"
-    
-    # Floating Action Button (Add Task)
-    MDFabButton:
-        icon: "plus"
-        style: "large"
-        theme_bg_color: "Custom"
-        md_bg_color: app.theme_cls.primaryColor
-        theme_icon_color: "Custom"
-        icon_color: 1, 1, 1, 1
-        pos_hint: {"center_x": 0.9, "center_y": 0.1}
-        on_release: root.open_add_task()
+            MDIconButton:
+                id: filter_btn
+                icon: "filter-variant"
+                theme_icon_color: "Custom"
+                icon_color: 1, 1, 1, 1
+                icon_size: "24sp"
+                size_hint: None, None
+                size: "48dp", "48dp"
+                on_release: root.btn_filter_click(self)
+            
+            MDIconButton:
+                icon: "refresh"
+                theme_icon_color: "Custom"
+                icon_color: 1, 1, 1, 1
+                icon_size: "24sp"
+                size_hint: None, None
+                size: "48dp", "48dp"
+                on_release: root.btn_reload_click()
+        
+        # Floating Action Button (Add Task) - overlayed
+        MDFabButton:
+            icon: "plus"
+            style: "large"
+            theme_bg_color: "Custom"
+            md_bg_color: app.theme_cls.primaryColor
+            theme_icon_color: "Custom"
+            icon_color: 1, 1, 1, 1
+            pos_hint: {"center_x": 0.9, "center_y": 0.1}
+            on_release: root.open_add_task()

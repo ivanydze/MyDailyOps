@@ -150,17 +150,26 @@ def sort_tasks(tasks):
     """
     print(f"🔄 Sorting {len(tasks)} tasks...")
     
+    def safe_timestamp(ts):
+        """Safely parse timestamp with microsecond precision issues"""
+        try:
+            if '.' in ts and '+' in ts:
+                main, tz = ts.rsplit('+', 1)
+                date, micro = main.split('.')
+                # Fix microsecond precision (must be exactly 6 digits)
+                micro = micro.ljust(6, '0')[:6]
+                ts = f"{date}.{micro}+{tz}"
+            return datetime.fromisoformat(ts).timestamp()
+        except:
+            return 0.0
+    
     sorted_tasks = sorted(
         tasks,
         key=lambda t: (
-            not t.get("pinned"),           # Pinned first
-            t.get("status") == "done",     # New before done
-            {                               # Priority order
-                "high": 0,
-                "medium": 1,
-                "low": 2
-            }.get(t.get("priority", "medium"), 1),
-            -(datetime.fromisoformat(t.get("created_at", "2000-01-01T00:00:00")).timestamp())  # Newest first
+            not t.get("pinned"),
+            t.get("status") == "done",
+            {"high": 0, "medium": 1, "low": 2}.get(t.get("priority", "medium"), 1),
+            -safe_timestamp(t.get("created_at", "2000-01-01T00:00:00"))
         )
     )
     

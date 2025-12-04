@@ -336,9 +336,14 @@ class AppTester:
         try:
             tasks_screen = self.app.root.get_screen('tasks')
             
+            # Expand search bar if needed
+            if hasattr(tasks_screen, 'toggle_search') and not tasks_screen.search_active:
+                tasks_screen.toggle_search()
+                self.log("Search bar expanded", "INFO")
+            
             # Search for our test task
             search_query = "Automated"
-            tasks_screen.on_search(search_query)
+            tasks_screen.apply_search(search_query)
             
             self.log(f"Search query: '{search_query}'", "INFO")
             
@@ -370,7 +375,7 @@ class AppTester:
                 self.tests_passed += 1  # Still pass
             
             # Clear search
-            tasks_screen.on_search("")
+            tasks_screen.apply_search("")
             
             # Continue to delete test
             Clock.schedule_once(lambda dt: self.test_delete_task(), 2.0)

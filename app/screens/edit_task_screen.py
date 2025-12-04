@@ -211,10 +211,17 @@ class EditTaskScreen(MDScreen):
     
     def enable_custom_category(self):
         """Allow custom category input"""
+        from kivy.clock import Clock
+        
+        # Dismiss menu first
+        self.category_menu.dismiss()
+        
+        # Update field properties
         self.ids.category.readonly = False
         self.ids.category.text = ""
-        self.ids.category.focus = True
-        self.category_menu.dismiss()
+        
+        # Delay focus to ensure menu is fully closed and readonly is updated
+        Clock.schedule_once(lambda dt: setattr(self.ids.category, 'focus', True), 0.1)
         print("✅ Custom category enabled")
 
     def save_changes(self):

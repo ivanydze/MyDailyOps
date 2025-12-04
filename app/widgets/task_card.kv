@@ -22,11 +22,11 @@
                     size: self.size
                     radius: [2]
         
-        # Status icon button
+        # Status icon button (checkbox)
         MDIconButton:
-            icon: root.get_status_icon()
+            icon: "check-circle" if root.is_done else "circle-outline"
             theme_icon_color: "Custom"
-            icon_color: root.get_priority_color() if not root.is_done else app.theme_cls.onSurfaceColor
+            icon_color: (0.3, 0.69, 0.31, 1) if root.is_done else (0.6, 0.6, 0.6, 1)
             icon_size: "28sp"
             ripple_scale: 1.5
             size_hint_x: None
@@ -76,7 +76,7 @@
             icon_color: app.theme_cls.primaryColor
             icon_size: "20sp"
         
-        # Action buttons
+        # Edit button
         MDIconButton:
             icon: "pencil"
             icon_size: "24sp"
@@ -87,8 +87,9 @@
             width: "48dp"
             on_release: root.edit()
         
+        # Delete button
         MDIconButton:
-            icon: "delete"
+            icon: "trash-can-outline"
             icon_size: "24sp"
             theme_icon_color: "Custom"
             icon_color: app.theme_cls.errorColor

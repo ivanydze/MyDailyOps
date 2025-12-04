@@ -5,6 +5,7 @@ from kivymd.uix.button import MDIconButton
 from kivymd.uix.menu import MDDropdownMenu
 from kivy.clock import mainthread
 from kivy.app import App
+from kivy.core.window import Window
 from kivy.animation import Animation
 from datetime import datetime, timedelta, date
 from win10toast import ToastNotifier
@@ -29,8 +30,15 @@ class TasksScreen(MDScreen):
     filtered_tasks = [] # задачи после фильтрации/поиска
     current_filter = "all"
     search_active = False
+    _keyboard_bound = False
 
     def on_pre_enter(self, *args):
+        # Bind keyboard shortcuts
+        if not self._keyboard_bound:
+            Window.bind(on_key_down=self._on_keyboard_down)
+            self._keyboard_bound = True
+            print("✅ Keyboard shortcuts bound: Ctrl+F=Search, Ctrl+G=Filter, F5=Reload")
+        
         # Load tasks first
         self.load_tasks()
         
@@ -40,12 +48,49 @@ class TasksScreen(MDScreen):
             self.current_filter = last_filter
             self.apply_filter()
             print(f"✅ Applied saved filter: {last_filter}")
+    
+    # WRAPPER METHODS FOR UI BUTTONS (guaranteed to work)
+    def btn_search_click(self):
+        """Called from SEARCH button"""
+        print("🔘 SEARCH button clicked!")
+        self.toggle_search()
+    
+    def btn_filter_click(self, button):
+        """Called from FILTER button"""  
+        print("🔘 FILTER button clicked!")
+        self.open_filter_menu(button)
+    
+    def btn_reload_click(self):
+        """Called from RELOAD button"""
+        print("🔘 RELOAD button clicked!")
+        self.load_tasks()
+    
+    def _on_keyboard_down(self, instance, keyboard, keycode, text, modifiers):
+        """Handle keyboard shortcuts"""
+        # Ctrl+F for search
+        if keycode == 33 and 'ctrl' in modifiers:  # F key
+            print("⌨️ Ctrl+F pressed - toggling search")
+            self.toggle_search()
+            return True
+        # Ctrl+G for filter  
+        elif keycode == 34 and 'ctrl' in modifiers:  # G key
+            print("⌨️ Ctrl+G pressed - opening filter")
+            self.open_filter_menu(None)
+            return True
+        # F5 for reload
+        elif keycode == 286:  # F5
+            print("⌨️ F5 pressed - reloading")
+            self.load_tasks()
+            return True
+        return False
+    
 
     # -------------------------
     # LOADING TASKS
     # -------------------------
     @mainthread
     def load_tasks(self):
+        print("🔄 load_tasks() called!")
         app = App.get_running_app()
         user = app.current_user
 
@@ -299,47 +344,72 @@ class TasksScreen(MDScreen):
     # SEARCH
     # -------------------------
     def toggle_search(self):
-        sf = self.ids.search_field
+        """Toggle search bar visibility with animation"""
+        print("🔍 toggle_search() called!")
+        from kivy.animation import Animation
+        from kivy.clock import Clock
+        from kivy.metrics import dp
+        
+        search_bar = self.ids.search_bar
 
         if self.search_active:
-            # скрываем
-            sf.height = "0dp"
-            sf.opacity = 0
-            sf.text = ""
+            # Collapse search bar
+            anim = Animation(height=0, opacity=0, duration=0.2)
+            anim.start(search_bar)
             self.search_active = False
-            self.apply_filter()  # вернуть нормальный список
+            
+            # Clear search text and restore filtered view
+            if hasattr(self.ids, 'search_input'):
+                self.ids.search_input.text = ""
+            self.apply_filter()
+            print("🔍 Search bar collapsed")
         else:
-            # показываем
-            sf.height = "48dp"
-            sf.opacity = 1
+            # Expand search bar
+            anim = Animation(height=dp(68), opacity=1, duration=0.2)
+            anim.start(search_bar)
             self.search_active = True
+            
+            # Focus on search input after animation
+            Clock.schedule_once(lambda dt: setattr(self.ids.search_input, 'focus', True), 0.3)
+            print("🔍 Search bar expanded")
 
-    def on_search(self, text):
-        text = text.lower()
+    def apply_search(self, text):
+        """Apply search filter to tasks"""
+        text = text.lower().strip()
 
-        if text.strip() == "":
+        if text == "":
+            # Empty search - restore current filter
             self.apply_filter()
             return
 
-        self.filtered_tasks = [
+        # Search in all tasks
+        search_results = [
             t for t in self.all_tasks
             if text in t["title"].lower() or text in (t.get("description") or "").lower()
         ]
-
+        
+        self.filtered_tasks = search_results
         self.render_tasks()
+        print(f"🔍 Search: '{text}' → {len(search_results)} results")
     
     def clear_search(self):
-        """Clear the search field and reset to all tasks"""
+        """Clear the search field, reset to filtered tasks, and collapse search bar"""
         if hasattr(self.ids, 'search_input'):
             self.ids.search_input.text = ""
         self.apply_filter()
-        print("✅ Search cleared")
+        
+        # Also collapse the search bar
+        if self.search_active:
+            self.toggle_search()
+        
+        print("✅ Search cleared and collapsed")
 
     # -------------------------
     # FILTER
     # -------------------------
     def open_filter_menu(self, caller):
         """Open filter selection menu"""
+        print("🔽 open_filter_menu() called!")
         menu_items = [
             {"text": "All",        "on_release": lambda: self.set_filter(TaskFilter.ALL.value)},
             {"text": "New",        "on_release": lambda: self.set_filter(TaskFilter.NEW.value)},
