@@ -12,6 +12,7 @@ from win10toast import ToastNotifier
 
 from app.supabase.client import supabase
 from app.widgets.task_card import TaskCard
+from app.widgets.settings_dialog import SettingsDialog
 from app.utils.config import get_last_filter, set_last_filter
 from app.utils.tasks import (
     group_tasks_by_date,
@@ -31,6 +32,7 @@ class TasksScreen(MDScreen):
     current_filter = "all"
     search_active = False
     _keyboard_bound = False
+    settings_dialog = None
 
     def on_pre_enter(self, *args):
         # Bind keyboard shortcuts
@@ -64,6 +66,13 @@ class TasksScreen(MDScreen):
         """Called from RELOAD button"""
         print("🔘 RELOAD button clicked!")
         self.load_tasks()
+    
+    def open_settings(self):
+        """Open settings dialog"""
+        print("⚙️ Opening settings dialog")
+        if not self.settings_dialog:
+            self.settings_dialog = SettingsDialog()
+        self.settings_dialog.show()
     
     def _on_keyboard_down(self, instance, keyboard, keycode, text, modifiers):
         """Handle keyboard shortcuts"""

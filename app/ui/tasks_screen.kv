@@ -41,16 +41,12 @@
                             text: "Search by title or description"
                             mode: "persistent"
                     
-                    Button:
-                        text: "X"
-                        size_hint_x: None
-                        width: "40dp"
-                        background_normal: ""
-                        background_color: 0.8, 0.2, 0.2, 1
-                        color: 1, 1, 1, 1
-                        font_size: "14sp"
-                        bold: True
-                        on_press: root.clear_search()
+                    MDIconButton:
+                        icon: "close"
+                        theme_icon_color: "Custom"
+                        icon_color: app.theme_cls.errorColor
+                        icon_size: "24sp"
+                        on_release: root.clear_search()
             
             # Filter banner (shows when filter is active)
             MDBoxLayout:
@@ -69,16 +65,14 @@
                     text_color: app.theme_cls.onSecondaryContainerColor
                     size_hint_x: 0.9
                 
-                Button:
-                    text: "X"
+                MDIconButton:
+                    icon: "close"
+                    icon_size: "20sp"
+                    theme_icon_color: "Custom"
+                    icon_color: app.theme_cls.onSecondaryContainerColor
                     size_hint_x: None
                     width: "32dp"
-                    background_normal: ""
-                    background_color: 0.6, 0.3, 0.3, 1
-                    color: 1, 1, 1, 1
-                    font_size: "12sp"
-                    bold: True
-                    on_press: root.set_filter("all")
+                    on_release: root.set_filter("all")
             
             # Task list scroll area
             MDScrollView:
@@ -93,7 +87,7 @@
                     padding: "16dp", "16dp", "16dp", "80dp"
                     spacing: "8dp"
         
-        # Top bar (overlayed on top - always visible)
+        # Top bar (overlayed on top - always visible) - MD3 colors
         BoxLayout:
             size_hint: 1, None
             height: "56dp"
@@ -102,7 +96,7 @@
             spacing: "4dp"
             canvas.before:
                 Color:
-                    rgba: 0.12, 0.46, 0.8, 1
+                    rgba: app.theme_cls.primaryColor
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -111,7 +105,7 @@
                 text: "MyDailyOps"
                 font_size: "20sp"
                 bold: True
-                color: 1, 1, 1, 1
+                color: app.theme_cls.onPrimaryColor
                 size_hint_x: 0.5
             
             Widget:
@@ -119,7 +113,7 @@
             MDIconButton:
                 icon: "magnify"
                 theme_icon_color: "Custom"
-                icon_color: 1, 1, 1, 1
+                icon_color: app.theme_cls.onPrimaryColor
                 icon_size: "24sp"
                 size_hint: None, None
                 size: "48dp", "48dp"
@@ -129,7 +123,7 @@
                 id: filter_btn
                 icon: "filter-variant"
                 theme_icon_color: "Custom"
-                icon_color: 1, 1, 1, 1
+                icon_color: app.theme_cls.onPrimaryColor
                 icon_size: "24sp"
                 size_hint: None, None
                 size: "48dp", "48dp"
@@ -138,11 +132,20 @@
             MDIconButton:
                 icon: "refresh"
                 theme_icon_color: "Custom"
-                icon_color: 1, 1, 1, 1
+                icon_color: app.theme_cls.onPrimaryColor
                 icon_size: "24sp"
                 size_hint: None, None
                 size: "48dp", "48dp"
                 on_release: root.btn_reload_click()
+            
+            MDIconButton:
+                icon: "cog"
+                theme_icon_color: "Custom"
+                icon_color: app.theme_cls.onPrimaryColor
+                icon_size: "24sp"
+                size_hint: None, None
+                size: "48dp", "48dp"
+                on_release: root.open_settings()
         
         # Floating Action Button (Add Task) - overlayed
         MDFabButton:

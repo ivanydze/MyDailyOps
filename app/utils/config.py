@@ -15,7 +15,8 @@ class Config:
     CONFIG_FILE = "config.json"
     DEFAULT_CONFIG = {
         "last_filter": "all",
-        "last_category_filter": None
+        "last_category_filter": None,
+        "theme": "light"
     }
     
     @classmethod
@@ -109,4 +110,16 @@ def get_last_category_filter():
 def set_last_category_filter(category):
     """Save the last selected category filter"""
     return Config.set("last_category_filter", category)
+
+
+def get_theme():
+    """Get the current theme preference"""
+    return Config.get("theme", "light")
+
+
+def set_theme(theme):
+    """Save the theme preference"""
+    if theme not in ["light", "dark"]:
+        theme = "light"
+    return Config.set("theme", theme)
 

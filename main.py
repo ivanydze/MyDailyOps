@@ -11,6 +11,7 @@ from app.screens.task_details_screen import TaskDetailsScreen
 from app.screens.edit_task_screen import EditTaskScreen
 
 from app.widgets.task_card import TaskCard
+from app.utils.config import get_theme
 
 Window.size = (400, 700)
 
@@ -21,11 +22,16 @@ class MyDailyOpsApp(MDApp):
     run_tests = False  # Set to True to run automated tests
 
     def build(self):
+        # Load user theme preference
+        user_theme = get_theme()
+        
         # Enable Material 3 theme BEFORE loading KV files
         self.theme_cls.material_style = "M3"
-        self.theme_cls.theme_style = "Light"  # Light theme for better visibility
+        self.theme_cls.theme_style = user_theme.capitalize()
         self.theme_cls.primary_palette = "Blue"
         self.theme_cls.primary_hue = "600"
+        
+        print(f"✅ Theme loaded: {user_theme}")
 
         # Теперь можно грузить KV
         Builder.load_file("app/ui/login_screen.kv")
