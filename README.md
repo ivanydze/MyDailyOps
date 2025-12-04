@@ -27,11 +27,16 @@ python main.py
 
 ## 📚 Documentation
 
+- **README.md** — This file - Quick start guide
 - **SUMMARY.md** — Project overview and technical details
+- **ARCHITECTURE.md** — Cross-platform architecture (Desktop + Mobile + Cloud)
 - **DEVELOPMENT.md** — Developer guide and coding standards
 - **TODO.md** — Development roadmap
 - **TESTING_CHECKLIST.md** — Manual testing guide
+- **KEYBOARD_SHORTCUTS.md** — Keyboard navigation guide
+- **CHANGELOG.md** — Version history
 - **IMPLEMENTATION_SUMMARY.md** — Latest implementation details
+- **SESSION_SUMMARY_2025-12-03.md** — Today's development session summary
 
 ## 🛠 Tech Stack
 

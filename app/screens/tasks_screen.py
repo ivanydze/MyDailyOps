@@ -11,6 +11,7 @@ from win10toast import ToastNotifier
 
 from app.supabase.client import supabase
 from app.widgets.task_card import TaskCard
+from app.utils.config import get_last_filter, set_last_filter
 from app.utils.tasks import (
     group_tasks_by_date,
     sort_tasks,
@@ -30,7 +31,15 @@ class TasksScreen(MDScreen):
     search_active = False
 
     def on_pre_enter(self, *args):
+        # Load tasks first
         self.load_tasks()
+        
+        # Load and apply last filter preference
+        last_filter = get_last_filter()
+        if last_filter and last_filter != "all":
+            self.current_filter = last_filter
+            self.apply_filter()
+            print(f"✅ Applied saved filter: {last_filter}")
 
     # -------------------------
     # LOADING TASKS
@@ -318,6 +327,13 @@ class TasksScreen(MDScreen):
         ]
 
         self.render_tasks()
+    
+    def clear_search(self):
+        """Clear the search field and reset to all tasks"""
+        if hasattr(self.ids, 'search_input'):
+            self.ids.search_input.text = ""
+        self.apply_filter()
+        print("✅ Search cleared")
 
     # -------------------------
     # FILTER
@@ -340,7 +356,14 @@ class TasksScreen(MDScreen):
     def set_filter(self, flt):
         self.current_filter = flt
         self.apply_filter()
-        self.menu.dismiss()
+        
+        # Dismiss menu if it exists
+        if hasattr(self, 'menu') and self.menu:
+            self.menu.dismiss()
+        
+        # Save filter preference to config
+        set_last_filter(flt)
+        print(f"✅ Filter saved: {flt}")
 
     def apply_filter(self):
         """Apply current filter to tasks - delegated to utils"""

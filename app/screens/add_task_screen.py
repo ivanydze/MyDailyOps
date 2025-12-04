@@ -4,6 +4,7 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivy.app import App
 from kivy.core.window import Window
 from app.supabase.client import supabase
+from app.utils.tasks import get_predefined_categories, TaskCategory
 from win10toast import ToastNotifier
 from datetime import datetime, date, time
 
@@ -13,6 +14,7 @@ notifier = ToastNotifier()
 class AddTaskScreen(MDScreen):
     _keyboard_bound = False
     priority_menu = None
+    category_menu = None
     
     def on_enter(self):
         """Called when screen is displayed"""
@@ -158,6 +160,44 @@ class AddTaskScreen(MDScreen):
         self.ids.priority.text = priority
         self.priority_menu.dismiss()
         print(f"✅ Priority set to: {priority}")
+    
+    def open_category_menu(self, caller):
+        """Open category selection menu"""
+        # Build menu items from predefined categories
+        menu_items = []
+        for category in get_predefined_categories():
+            menu_items.append({
+                "text": category,
+                "on_release": lambda cat=category: self.set_category(cat),
+            })
+        
+        # Add "Custom..." option
+        menu_items.append({
+            "text": "Custom...",
+            "on_release": lambda: self.enable_custom_category(),
+        })
+        
+        self.category_menu = MDDropdownMenu(
+            caller=caller,
+            items=menu_items,
+            width_mult=3
+        )
+        self.category_menu.open()
+    
+    def set_category(self, category):
+        """Set selected category"""
+        self.ids.category.text = category
+        self.ids.category.readonly = True
+        self.category_menu.dismiss()
+        print(f"✅ Category set to: {category}")
+    
+    def enable_custom_category(self):
+        """Allow custom category input"""
+        self.ids.category.readonly = False
+        self.ids.category.text = ""
+        self.ids.category.focus = True
+        self.category_menu.dismiss()
+        print("✅ Custom category enabled")
 
     def save_task(self):
         app = App.get_running_app()

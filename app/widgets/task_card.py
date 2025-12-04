@@ -1,5 +1,6 @@
 from kivymd.uix.card import MDCard
 from kivy.properties import ObjectProperty, StringProperty, BooleanProperty
+from app.utils.tasks import get_status_icon, get_priority_color, get_category_icon
 
 
 class TaskCard(MDCard):
@@ -39,9 +40,14 @@ class TaskCard(MDCard):
         self.is_pinned = task.get("pinned", False)
         self.priority = task.get("priority", "medium")
         
-        # Build subtitle with priority and status
+        # Build subtitle with category, priority and status
         status_text = "✓ Done" if self.is_done else "⏳ Pending"
         priority_text = f"{self.priority.capitalize()} priority"
+        
+        # Add category if present
+        category = task.get("category", "")
+        if category:
+            priority_text = f"[{category}] {priority_text}"
         
         deadline = task.get("deadline")
         if deadline:

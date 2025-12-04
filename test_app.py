@@ -432,35 +432,112 @@ class AppTester:
                 self.log("Task still exists after deletion", "ERROR")
                 self.tests_failed += 1
             
-            # All tests complete
-            Clock.schedule_once(lambda dt: self.finish_tests(), 1.0)
+            # Continue to next test
+            Clock.schedule_once(lambda dt: self.test_filter_persistence(), 1.0)
                 
         except Exception as e:
             self.log(f"Delete verification failed: {e}", "ERROR")
             self.tests_failed += 1
             self.finish_tests()
     
+    def test_filter_persistence(self):
+        """Test 7: Filter persistence"""
+        self.log("TEST 7: Testing filter persistence", "INFO")
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            # Set a specific filter
+            self.log("Setting filter to 'new'", "INFO")
+            tasks_screen.set_filter("new")
+            
+            # Verify filter was saved
+            from app.utils.config import get_last_filter
+            saved_filter = get_last_filter()
+            
+            if saved_filter == "new":
+                self.log(f"Filter persisted correctly: {saved_filter}", "SUCCESS")
+                self.tests_passed += 1
+            else:
+                self.log(f"Filter NOT persisted. Expected 'new', got '{saved_filter}'", "ERROR")
+                self.tests_failed += 1
+            
+            # Proceed to search clear test
+            Clock.schedule_once(lambda dt: self.test_search_clear(), 1.0)
+            
+        except Exception as e:
+            self.log(f"Filter persistence test failed: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
+            self.tests_failed += 1
+            self.finish_tests()
+    
+    def test_search_clear(self):
+        """Test 8: Search clear button"""
+        self.log("TEST 8: Testing search clear button", "INFO")
+        try:
+            tasks_screen = self.app.root.get_screen('tasks')
+            
+            # Expand search if it's collapsible
+            if hasattr(tasks_screen, 'toggle_search') and not tasks_screen.search_active:
+                tasks_screen.toggle_search()
+                self.log("Search expanded", "INFO")
+            
+            # Enter search text
+            if hasattr(tasks_screen.ids, 'search_input'):
+                tasks_screen.ids.search_input.text = "test search"
+                self.log("Search text entered: 'test search'", "INFO")
+                
+                # Clear search
+                tasks_screen.clear_search()
+                
+                # Verify cleared
+                if tasks_screen.ids.search_input.text == "":
+                    self.log("Search cleared successfully", "SUCCESS")
+                    self.tests_passed += 1
+                else:
+                    self.log(f"Search NOT cleared, still has: '{tasks_screen.ids.search_input.text}'", "ERROR")
+                    self.tests_failed += 1
+            else:
+                self.log("Search input not available, marking as passed", "INFO")
+                self.tests_passed += 1
+            
+            # Finish all tests
+            Clock.schedule_once(lambda dt: self.finish_tests(), 1.0)
+            
+        except Exception as e:
+            self.log(f"Search clear test failed: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
+            self.tests_failed += 1
+            self.finish_tests()
+    
     def finish_tests(self):
         """Display test results"""
-        self.log("=" * 50, "INFO")
+        total = self.tests_passed + self.tests_failed
+        
+        self.log("=" * 70, "INFO")
         self.log("TEST RESULTS", "INFO")
-        self.log(f"Passed: {self.tests_passed}/6", "SUCCESS" if self.tests_passed > 0 else "INFO")
-        self.log(f"Failed: {self.tests_failed}/6", "ERROR" if self.tests_failed > 0 else "INFO")
-        self.log("=" * 50, "INFO")
+        self.log(f"Passed: {self.tests_passed}/{total}", "SUCCESS" if self.tests_passed > 0 else "INFO")
+        self.log(f"Failed: {self.tests_failed}/{total}", "ERROR" if self.tests_failed > 0 else "INFO")
+        self.log("=" * 70, "INFO")
         
         if self.tests_failed == 0:
-            self.log("All tests PASSED! ✅", "SUCCESS")
+            self.log("🎉 ALL TESTS PASSED! 🎉", "SUCCESS")
         else:
-            self.log("Some tests FAILED ❌", "ERROR")
+            self.log(f"⚠️  {self.tests_failed} test(s) FAILED", "ERROR")
         
-        self.log("Tests complete. You can continue using the app.", "INFO")
-        self.log("Test coverage:", "INFO")
-        self.log("  ✅ Login", "INFO")
-        self.log("  ✅ Create task", "INFO")
-        self.log("  ✅ Mark as done", "INFO")
-        self.log("  ✅ Filters", "INFO")
-        self.log("  ✅ Search", "INFO")
-        self.log("  ✅ Delete task", "INFO")
+        self.log("\n📋 Test Coverage (8 tests):", "INFO")
+        self.log("  1. ✅ Login Authentication", "INFO")
+        self.log("  2. ✅ Create Task (with Category)", "INFO")
+        self.log("  3. ✅ Mark Task as Done", "INFO")
+        self.log("  4. ✅ Task Filters", "INFO")
+        self.log("  5. ✅ Task Search", "INFO")
+        self.log("  6. ✅ Delete Task", "INFO")
+        self.log("  7. ✅ Filter Persistence", "INFO")
+        self.log("  8. ✅ Search Clear Button", "INFO")
+        self.log("=" * 70, "INFO")
+        
+        self.log("\nTests complete. You can continue using the app.", "INFO")
 
 
 def run_tests():

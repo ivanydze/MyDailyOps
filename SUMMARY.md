@@ -21,37 +21,53 @@ MyDailyOps is a modern desktop application for personal task management built wi
 ```
 MyDailyOps/
 ├── main.py
+├── run.bat                    # Windows launcher
+├── test_app.py                # Automated test suite
 ├── app/
-│   ├── screens/
+│   ├── screens/               # Application screens
 │   │   ├── login_screen.py
 │   │   ├── tasks_screen.py
 │   │   ├── add_task_screen.py
 │   │   ├── edit_task_screen.py
-│   │   ├── task_details_screen.py
-│   │   └── home_screen.py (unused)
+│   │   └── task_details_screen.py
 │   │
-│   ├── ui/
+│   ├── ui/                    # KV layout files
 │   │   ├── login_screen.kv
 │   │   ├── tasks_screen.kv
 │   │   ├── add_task_screen.kv
 │   │   ├── edit_task_screen.kv
 │   │   └── task_details_screen.kv
 │   │
-│   ├── widgets/
+│   ├── widgets/               # Reusable components
 │   │   ├── task_card.py
 │   │   └── task_card.kv
 │   │
-│   ├── supabase/
+│   ├── supabase/              # Backend client
 │   │   └── client.py
 │   │
-│   ├── utils/
+│   ├── utils/                 # Helper functions
 │   │   ├── notifier.py
-│   │   └── helpers.py
+│   │   ├── helpers.py
+│   │   └── tasks.py           # Task utilities & enums
 │   │
-│   └── database/
+│   ├── database/              # Local cache (planned)
+│   │   └── cache.py           # SQLite offline storage
+│   │
+│   └── sync/                  # Sync engine (planned)
+│       └── engine.py          # Cloud sync logic
+│
+├── docs/                      # Documentation
+│   ├── SUMMARY.md
+│   ├── ARCHITECTURE.md        # Cross-platform design
+│   ├── DEVELOPMENT.md
+│   ├── TODO.md
+│   ├── CHANGELOG.md
+│   └── ...
 │
 └── venv/
 ```
+
+See **ARCHITECTURE.md** for cross-platform architecture details.
 
 ---
 

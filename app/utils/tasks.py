@@ -24,6 +24,15 @@ class TaskStatus(Enum):
     DONE = "done"
 
 
+class TaskCategory(Enum):
+    """Predefined task categories"""
+    WORK = "Work"
+    PERSONAL = "Personal"
+    HEALTH = "Health"
+    FINANCE = "Finance"
+    OTHER = "Other"
+
+
 class TaskFilter(Enum):
     """Available task filters"""
     ALL = "all"
@@ -245,4 +254,45 @@ def format_deadline_display(deadline_str):
     except Exception as e:
         print(f"⚠️ Error formatting deadline '{deadline_str}': {e}")
         return deadline_str
+
+
+def get_category_icon(category):
+    """
+    Get icon name for category.
+    
+    Returns: icon name string
+    """
+    icons = {
+        TaskCategory.WORK.value: "briefcase",
+        TaskCategory.PERSONAL.value: "account",
+        TaskCategory.HEALTH.value: "heart-pulse",
+        TaskCategory.FINANCE.value: "currency-usd",
+        TaskCategory.OTHER.value: "dots-horizontal"
+    }
+    return icons.get(category, "tag-outline")
+
+
+def get_category_color(category):
+    """
+    Get RGBA color tuple for category.
+    
+    Returns: (r, g, b, a) tuple
+    """
+    colors = {
+        TaskCategory.WORK.value: (0.13, 0.59, 0.95, 1),      # Blue
+        TaskCategory.PERSONAL.value: (0.61, 0.15, 0.69, 1),  # Purple
+        TaskCategory.HEALTH.value: (0.95, 0.26, 0.21, 1),    # Red
+        TaskCategory.FINANCE.value: (0.30, 0.69, 0.31, 1),   # Green
+        TaskCategory.OTHER.value: (0.62, 0.62, 0.62, 1)      # Grey
+    }
+    return colors.get(category, (0.62, 0.62, 0.62, 1))
+
+
+def get_predefined_categories():
+    """
+    Get list of predefined category names.
+    
+    Returns: list of category names
+    """
+    return [cat.value for cat in TaskCategory]
 
