@@ -455,6 +455,61 @@ export async function generateRecurringInstances(templateTask: Task): Promise<Ta
 }
 
 /**
+ * Check if a task is a recurring template
+ */
+export function isRecurringTemplate(task: Task): boolean {
+  return task.recurring_options !== null && 
+         task.recurring_options.type !== 'none';
+}
+
+/**
+ * Find all instances belonging to a template task
+ * Uses title + user_id matching to identify instances
+ */
+export function findAllInstancesFromTemplate(templateTask: Task, allTasks: Task[]): Task[] {
+  return allTasks.filter(task => 
+    task.id !== templateTask.id && // Not the template itself
+    task.user_id === templateTask.user_id &&
+    task.title === templateTask.title &&
+    !task.recurring_options // Instance has no recurring_options
+  );
+}
+
+/**
+ * Find the template task for a given instance
+ * Uses title + user_id matching and checks for recurring_options
+ */
+export function findTemplateFromInstance(instance: Task, allTasks: Task[]): Task | null {
+  return allTasks.find(task => 
+    task.id !== instance.id && // Not the instance itself
+    task.user_id === instance.user_id &&
+    task.title === instance.title &&
+    task.recurring_options !== null && // Template has recurring_options
+    task.recurring_options.type !== 'none'
+  ) || null;
+}
+
+/**
+ * Delete all instances of a recurring task (including past and future)
+ * Used when deleting a template task
+ */
+export async function deleteAllInstances(templateTask: Task): Promise<number> {
+  const userId = templateTask.user_id;
+  const allTasks = await db.loadTasksFromCache(userId);
+  
+  const instances = findAllInstancesFromTemplate(templateTask, allTasks);
+  let deletedCount = 0;
+
+  for (const instance of instances) {
+    await db.deleteTaskFromCache(instance.id);
+    deletedCount++;
+  }
+
+  console.log(`[Recurring] Deleted ${deletedCount} instances for template: ${templateTask.title}`);
+  return deletedCount;
+}
+
+/**
  * Delete all future instances of a recurring task
  * Keeps past completed tasks and overdue pending tasks (so user can see what they missed)
  */

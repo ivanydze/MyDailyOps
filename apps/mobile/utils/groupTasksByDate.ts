@@ -18,6 +18,7 @@ export interface GroupedTasks {
   thisWeek: Task[];
   nextWeek: Task[];
   future: Task[];
+  completed?: Task[]; // Optional: for completed tasks
 }
 
 /**

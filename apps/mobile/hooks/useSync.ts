@@ -4,10 +4,18 @@ import {
   loadTasksFromCache,
   upsertTaskToCache,
   deleteTaskFromCache,
+  getTaskById,
 } from '../database/init';
 import { syncNow, pushTaskToSupabase, pushTasksToSupabaseBatch, deleteTaskFromSupabase } from '../lib/sync';
 import { useAuth } from '../contexts/AuthContext';
-import { generateRecurringInstances, deleteFutureInstances, applyRecurringConfig } from '../utils/recurring';
+import { 
+  generateRecurringInstances, 
+  deleteFutureInstances, 
+  applyRecurringConfig,
+  isRecurringTemplate,
+  findAllInstancesFromTemplate,
+  deleteAllInstances,
+} from '../utils/recurring';
 import * as Crypto from 'expo-crypto';
 
 export interface UseSyncReturn {
@@ -275,6 +283,7 @@ export function useSync(): UseSyncReturn {
 
   /**
    * Delete task (offline-first)
+   * Handles recurring tasks: if template is deleted, all instances are deleted too
    */
   const deleteTask = useCallback(async (taskId: string) => {
     if (!userId) {
@@ -285,17 +294,53 @@ export function useSync(): UseSyncReturn {
     try {
       console.log('[useSync] Deleting task:', taskId);
       
-      // Delete from local cache immediately
-      await deleteTaskFromCache(taskId);
+      // Load the task first to determine if it's a template or instance
+      const taskToDelete = await getTaskById(taskId);
+      if (!taskToDelete) {
+        console.warn('[useSync] Task not found:', taskId);
+        return;
+      }
+
+      const tasksToDelete: string[] = [taskId]; // Always delete the requested task
+      
+      // Check if this is a recurring template
+      if (isRecurringTemplate(taskToDelete)) {
+        console.log('[useSync] Task is a recurring template, deleting all instances');
+        
+        // Find and delete all instances
+        const allTasks = await loadTasksFromCache(userId);
+        const instances = findAllInstancesFromTemplate(taskToDelete, allTasks);
+        
+        for (const instance of instances) {
+          tasksToDelete.push(instance.id);
+          await deleteTaskFromCache(instance.id);
+        }
+        
+        // Delete the template
+        await deleteTaskFromCache(taskId);
+        
+        console.log(`[useSync] Deleted template + ${instances.length} instances`);
+      } else {
+        // Regular task or instance - delete only this task
+        await deleteTaskFromCache(taskId);
+        console.log('[useSync] Deleted single task (non-template)');
+      }
 
       // Refresh local view
       await refreshTasks();
 
       // Delete from Supabase in background (only if authenticated)
       if (isAuthenticated) {
-        deleteTaskFromSupabase(taskId, userId).catch((err) => {
-          console.error('[useSync] Background delete failed:', err);
-          setError('Deletion saved locally. Will sync later.');
+        // Delete all tasks in parallel
+        Promise.all(
+          tasksToDelete.map(taskId => 
+            deleteTaskFromSupabase(taskId, userId).catch((err) => {
+              console.error(`[useSync] Failed to delete task ${taskId} from Supabase:`, err);
+            })
+          )
+        ).catch((err) => {
+          console.error('[useSync] Some deletions failed:', err);
+          setError('Some deletions saved locally. Will sync later.');
         });
       }
     } catch (err) {

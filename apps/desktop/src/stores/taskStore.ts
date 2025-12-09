@@ -3,7 +3,14 @@ import type { Task } from "@mydailyops/core";
 import * as db from "../lib/db";
 import { getCurrentUserId, supabase } from "../lib/supabaseClient";
 import { pushTaskToSupabase, pushTasksToSupabaseBatch, deleteTaskFromSupabase, syncNow } from "../services/syncService";
-import { generateRecurringInstances, deleteFutureInstances, applyRecurringConfig } from "../utils/recurring";
+import { 
+  generateRecurringInstances, 
+  deleteFutureInstances, 
+  applyRecurringConfig,
+  isRecurringTemplate,
+  findAllInstancesFromTemplate,
+  deleteAllInstances,
+} from "../utils/recurring";
 
 interface TaskState {
   tasks: Task[];
@@ -226,17 +233,52 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         throw new Error("Not authenticated");
       }
 
-      // Delete from SQLite first
-      await db.deleteTaskFromCache(id);
+      // Load the task first to determine if it's a template or instance
+      const taskToDelete = await db.getTaskById(id);
+      if (!taskToDelete) {
+        console.warn('[TaskStore] Task not found:', id);
+        return;
+      }
+
+      const tasksToDelete: string[] = [id]; // Always delete the requested task
       
-      // Update local state
+      // Check if this is a recurring template
+      if (isRecurringTemplate(taskToDelete)) {
+        console.log('[TaskStore] Task is a recurring template, deleting all instances');
+        
+        // Find and delete all instances
+        const allTasks = await db.loadTasksFromCache(userId);
+        const instances = findAllInstancesFromTemplate(taskToDelete, allTasks);
+        
+        for (const instance of instances) {
+          tasksToDelete.push(instance.id);
+          await db.deleteTaskFromCache(instance.id);
+        }
+        
+        // Delete the template
+        await db.deleteTaskFromCache(id);
+        
+        console.log(`[TaskStore] Deleted template + ${instances.length} instances`);
+      } else {
+        // Regular task or instance - delete only this task
+        await db.deleteTaskFromCache(id);
+        console.log('[TaskStore] Deleted single task (non-template)');
+      }
+      
+      // Update local state - remove all deleted tasks
       set((state) => ({
-        tasks: state.tasks.filter((t) => t.id !== id),
+        tasks: state.tasks.filter((t) => !tasksToDelete.includes(t.id)),
       }));
 
-      // Delete from Supabase in background
-      deleteTaskFromSupabase(id, userId).catch((error) => {
-        console.error('[TaskStore] Error deleting task from Supabase:', error);
+      // Delete from Supabase in background - delete all tasks in parallel
+      Promise.all(
+        tasksToDelete.map(taskId => 
+          deleteTaskFromSupabase(taskId, userId).catch((error) => {
+            console.error(`[TaskStore] Error deleting task ${taskId} from Supabase:`, error);
+          })
+        )
+      ).catch((error) => {
+        console.error('[TaskStore] Some deletions failed:', error);
       });
     } catch (error) {
       set({ error: String(error) });

@@ -43,15 +43,20 @@ export default function TasksScreen() {
       result = result.filter((task) => {
         switch (currentFilter) {
           case 'today':
-            return task.deadline && new Date(task.deadline) <= tomorrow;
+            // Exclude completed tasks from today filter (they show in Completed/All only)
+            return task.deadline && new Date(task.deadline) <= tomorrow && task.status !== 'done';
           case 'tomorrow':
+            // Exclude completed tasks from tomorrow filter
             const deadline = task.deadline ? new Date(task.deadline) : null;
-            return deadline && deadline >= tomorrow && deadline < new Date(tomorrow.getTime() + 86400000);
+            return deadline && deadline >= tomorrow && deadline < new Date(tomorrow.getTime() + 86400000) && task.status !== 'done';
           case 'this_week':
-            return task.deadline && new Date(task.deadline) <= weekEnd;
+            // Exclude completed tasks from this_week filter
+            return task.deadline && new Date(task.deadline) <= weekEnd && task.status !== 'done';
           case 'overdue':
+            // Already excludes completed (task.status !== 'done')
             return task.deadline && new Date(task.deadline) < today && task.status !== 'done';
           case 'done':
+            // Only show completed tasks
             return task.status === 'done';
           default:
             return true;
@@ -75,10 +80,38 @@ export default function TasksScreen() {
 
   /**
    * Group tasks by deadline using the new grouping utility
+   * If filter is 'done', show completed tasks directly without grouping
+   * If filter is 'all', include completed tasks in a separate section
    */
   const groupedTasks = useMemo(() => {
+    // For 'done' filter, don't group - return empty groups and completed tasks separately
+    if (currentFilter === 'done') {
+      const completedTasks = filteredTasks.filter(task => task.status === 'done');
+      return {
+        overdue: [],
+        today: [],
+        tomorrow: [],
+        thisWeek: [],
+        nextWeek: [],
+        future: [],
+        completed: completedTasks,
+      };
+    }
+    
+    // For 'all' filter, group active tasks and include completed separately
+    if (currentFilter === 'all') {
+      const activeTasks = filteredTasks.filter(task => task.status !== 'done');
+      const completedTasks = filteredTasks.filter(task => task.status === 'done');
+      const grouped = groupTasksByDate(activeTasks);
+      return {
+        ...grouped,
+        completed: completedTasks,
+      };
+    }
+    
+    // For other filters (today, tomorrow, etc.), group normally (completed already filtered out)
     return groupTasksByDate(filteredTasks);
-  }, [filteredTasks]);
+  }, [filteredTasks, currentFilter]);
 
   const handleToggleSearch = () => {
     setSearchVisible(!searchVisible);
@@ -128,17 +161,31 @@ export default function TasksScreen() {
 
   /**
    * Prepare sections in the required order
+   * Include Completed section when there are completed tasks
    */
   const sections = useMemo(() => {
-    return [
+    const baseSections = [
       { title: 'Overdue', tasks: groupedTasks.overdue },
       { title: 'Today', tasks: groupedTasks.today },
       { title: 'Tomorrow', tasks: groupedTasks.tomorrow },
       { title: 'This Week', tasks: groupedTasks.thisWeek },
       { title: 'Next Week', tasks: groupedTasks.nextWeek },
       { title: 'Future', tasks: groupedTasks.future },
-    ].filter(section => section.tasks.length > 0);
-  }, [groupedTasks]);
+    ];
+    
+    // Add Completed section if it exists and has tasks
+    if (groupedTasks.completed && groupedTasks.completed.length > 0) {
+      // For 'done' filter, show completed first
+      if (currentFilter === 'done') {
+        return [{ title: 'Completed', tasks: groupedTasks.completed }];
+      }
+      // For 'all' filter, show completed at the end
+      return [...baseSections, { title: 'Completed', tasks: groupedTasks.completed }]
+        .filter(section => section.tasks.length > 0);
+    }
+    
+    return baseSections.filter(section => section.tasks.length > 0);
+  }, [groupedTasks, currentFilter]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
