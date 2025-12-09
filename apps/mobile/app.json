@@ -9,6 +9,9 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "fonts": [
+      "assets/fonts/Alice-Regular.ttf"
+    ],
     "android": {
       "package": "com.mydailyops.mobile",
       "adaptiveIcon": {

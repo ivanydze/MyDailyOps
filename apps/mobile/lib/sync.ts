@@ -194,6 +194,94 @@ export async function pushTaskToSupabase(task: Task): Promise<Task> {
 }
 
 /**
+ * Push multiple tasks to Supabase in a single batch operation (upsert)
+ */
+export async function pushTasksToSupabaseBatch(tasks: Task[]): Promise<Task[]> {
+  if (tasks.length === 0) {
+    return [];
+  }
+  console.log(`[Sync] Pushing batch of ${tasks.length} tasks to Supabase`);
+
+  try {
+    const formattedTasks = tasks.map(task => {
+      const recurringOptionsJson = task.recurring_options
+        ? (typeof task.recurring_options === 'string'
+            ? task.recurring_options
+            : JSON.stringify(task.recurring_options))
+        : null;
+
+      return {
+        id: task.id,
+        user_id: task.user_id,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        category: task.category,
+        deadline: task.deadline,
+        status: task.status,
+        pinned: task.pinned,
+        created_at: task.created_at,
+        updated_at: task.updated_at,
+        recurring: task.recurring_options ? true : false,
+        recurring_options: recurringOptionsJson,
+      };
+    });
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .upsert(formattedTasks)
+      .select('*');
+
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error('No data returned from Supabase batch upsert');
+    }
+
+    const returnedTasks: Task[] = data.map((row: any) => {
+      let recurringOptions = null;
+      if (row.recurring_options) {
+        try {
+          recurringOptions = typeof row.recurring_options === 'string'
+            ? JSON.parse(row.recurring_options)
+            : row.recurring_options;
+        } catch (e) {
+          console.error('[Sync] Error parsing recurring_options from batch response:', e);
+          recurringOptions = null;
+        }
+      }
+      const isCompleted = row.status === 'done';
+      return {
+        id: row.id,
+        user_id: row.user_id,
+        title: row.title,
+        description: row.description || '',
+        priority: row.priority,
+        category: row.category,
+        deadline: row.deadline,
+        status: row.status,
+        pinned: row.pinned === true || row.pinned === 1 || row.pinned === '1',
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        recurring_options: recurringOptions,
+        is_completed: isCompleted,
+      };
+    });
+
+    // Update local cache with server responses
+    for (const task of returnedTasks) {
+      await upsertTaskToCache(task);
+    }
+
+    console.log(`[Sync] Batch push successful: ${returnedTasks.length} tasks pushed`);
+    return returnedTasks;
+  } catch (error) {
+    console.error('[Sync] Error pushing tasks in batch to Supabase:', error);
+    throw error;
+  }
+}
+
+/**
  * Delete task from Supabase
  */
 export async function deleteTaskFromSupabase(taskId: string, userId: string): Promise<void> {

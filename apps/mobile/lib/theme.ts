@@ -2,10 +2,73 @@ import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper'
 import type { MD3Theme } from 'react-native-paper';
 
 /**
+ * Configure fonts to use Alice as the default font family
+ */
+const fontConfig = {
+  web: {
+    regular: {
+      fontFamily: 'Alice, system-ui, sans-serif',
+      fontWeight: '400' as const,
+    },
+    medium: {
+      fontFamily: 'Alice, system-ui, sans-serif',
+      fontWeight: '500' as const,
+    },
+    light: {
+      fontFamily: 'Alice, system-ui, sans-serif',
+      fontWeight: '300' as const,
+    },
+    thin: {
+      fontFamily: 'Alice, system-ui, sans-serif',
+      fontWeight: '100' as const,
+    },
+  },
+  ios: {
+    regular: {
+      fontFamily: 'Alice',
+      fontWeight: '400' as const,
+    },
+    medium: {
+      fontFamily: 'Alice',
+      fontWeight: '500' as const,
+    },
+    light: {
+      fontFamily: 'Alice',
+      fontWeight: '300' as const,
+    },
+    thin: {
+      fontFamily: 'Alice',
+      fontWeight: '100' as const,
+    },
+  },
+  android: {
+    regular: {
+      fontFamily: 'Alice',
+      fontWeight: '400' as const,
+    },
+    medium: {
+      fontFamily: 'Alice',
+      fontWeight: '500' as const,
+    },
+    light: {
+      fontFamily: 'Alice',
+      fontWeight: '300' as const,
+    },
+    thin: {
+      fontFamily: 'Alice',
+      fontWeight: '100' as const,
+    },
+  },
+};
+
+const fonts = configureFonts({ config: fontConfig });
+
+/**
  * Material 3 Light Theme
  */
 export const lightTheme: MD3Theme = {
   ...MD3LightTheme,
+  fonts,
   colors: {
     ...MD3LightTheme.colors,
     primary: 'rgb(103, 80, 164)',
@@ -56,6 +119,7 @@ export const lightTheme: MD3Theme = {
  */
 export const darkTheme: MD3Theme = {
   ...MD3DarkTheme,
+  fonts,
   colors: {
     ...MD3DarkTheme.colors,
     primary: 'rgb(208, 188, 255)',

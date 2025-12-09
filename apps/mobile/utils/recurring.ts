@@ -14,6 +14,8 @@ import {
   setSeconds,
   isAfter,
   isEqual,
+  startOfDay,
+  isBefore,
 } from 'date-fns';
 
 /**
@@ -80,6 +82,79 @@ function getNthWeekdayInMonth(
 }
 
 /**
+ * Compute weekly recurring dates within a date range
+ * @param templateTask The master recurring task
+ * @param startDate Start date (deadline or today)
+ * @param endDate End date (startDate + generate_value × generate_unit)
+ * @returns Array of Date objects for all matching weekday occurrences
+ */
+function computeWeeklyDatesInRange(
+  templateTask: Task,
+  startDate: Date,
+  endDate: Date
+): Date[] {
+  const options = templateTask.recurring_options;
+  if (!options || options.type !== 'weekly' || !options.weekdays || options.weekdays.length === 0) {
+    return [];
+  }
+
+  console.log(`[Recurring][Weekly] Generating occurrences from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
+  // Preserve original time
+  let originalTime: { hours: number; minutes: number; seconds: number } | null = null;
+  if (templateTask.deadline) {
+    const deadlineDate = parseISO(templateTask.deadline);
+    originalTime = {
+      hours: deadlineDate.getHours(),
+      minutes: deadlineDate.getMinutes(),
+      seconds: deadlineDate.getSeconds(),
+    };
+  }
+
+  const dates: Date[] = [];
+  const start = startOfDay(startDate);
+  const end = startOfDay(endDate);
+  const now = startOfDay(new Date());
+  
+  // Convert weekday strings to day numbers (0 = Sunday, 6 = Saturday)
+  const targetDayNumbers = new Set<number>();
+  for (const weekday of options.weekdays) {
+    targetDayNumbers.add(weekdayToDayOfWeek(weekday));
+  }
+
+  // Iterate day by day from start to end (inclusive)
+  // Start from the day after the start date to avoid including the template's deadline
+  let currentDate = addDays(start, 1);
+  
+  while (isBefore(currentDate, end) || isEqual(startOfDay(currentDate), end)) {
+    const dayOfWeek = getDay(currentDate);
+    const currentDayStart = startOfDay(currentDate);
+    
+    // Check if this date matches one of the selected weekdays
+    // Only include dates that are today or in the future (not past)
+    if (targetDayNumbers.has(dayOfWeek) && (isAfter(currentDayStart, now) || isEqual(currentDayStart, now))) {
+      let dateWithTime = new Date(currentDate);
+      
+      // Restore original time if it existed
+      if (originalTime) {
+        dateWithTime = setHours(dateWithTime, originalTime.hours);
+        dateWithTime = setMinutes(dateWithTime, originalTime.minutes);
+        dateWithTime = setSeconds(dateWithTime, originalTime.seconds);
+      }
+      
+      dates.push(dateWithTime);
+      console.log(`[Recurring][Weekly] Added: ${dateWithTime.toISOString()}`);
+    }
+    
+    // Move to next day
+    currentDate = addDays(currentDate, 1);
+  }
+
+  console.log(`[Recurring][Weekly] Generated ${dates.length} occurrences`);
+  return dates;
+}
+
+/**
  * Compute the next N recurring dates for a template task
  * @param templateTask The master recurring task
  * @param count Number of instances to generate
@@ -108,7 +183,7 @@ function computeNextNDates(templateTask: Task, count: number): Date[] {
   let currentDate = new Date(startDate);
 
   for (let i = 0; i < count; i++) {
-    let nextDate: Date;
+    let nextDate: Date | null = null; // Initialize as nullable
 
     switch (options.type) {
       case 'daily': {
@@ -125,33 +200,7 @@ function computeNextNDates(templateTask: Task, count: number): Date[] {
       }
 
       case 'weekly': {
-        if (!options.weekdays || options.weekdays.length === 0) {
-          break;
-        }
-
-        // Find next weekday
-        let found = false;
-        for (let j = 1; j <= 14; j++) {
-          const checkDate = addDays(currentDate, j);
-          const checkWeekday = dayOfWeekToWeekday(getDay(checkDate));
-          if (options.weekdays.includes(checkWeekday)) {
-            nextDate = checkDate;
-            currentDate = new Date(checkDate);
-            found = true;
-            break;
-          }
-        }
-
-        if (!found) {
-          // Fallback
-          const firstWeekday = options.weekdays[0];
-          const dayOfWeek = weekdayToDayOfWeek(firstWeekday);
-          const currentDay = getDay(currentDate);
-          let offset = (dayOfWeek - currentDay + 7) % 7;
-          if (offset === 0) offset = 7;
-          nextDate = addDays(currentDate, offset);
-          currentDate = new Date(nextDate);
-        }
+        // Weekly is now handled by computeWeeklyDatesInRange, this case should not be reached for actual generation
         break;
       }
 
@@ -209,6 +258,10 @@ function computeNextNDates(templateTask: Task, count: number): Date[] {
 
     if (nextDate) {
       dates.push(nextDate);
+    } else {
+      // If no date was computed for this iteration, stop generating
+      console.warn(`[Recurring] Could not compute date for iteration ${i}, stopping generation`);
+      break;
     }
   }
 
@@ -299,11 +352,32 @@ export async function generateRecurringInstances(templateTask: Task): Promise<Ta
     custom: options.custom || false,
   };
 
-  // Calculate how many instances to generate
-  const instanceCount = calculateInstanceCount(configOptions);
+  let futureDates: Date[] = [];
 
-  // Compute all future dates
-  const futureDates = computeNextNDates(templateTask, instanceCount);
+  // Special handling for weekly tasks using date range
+  if (configOptions.type === 'weekly') {
+    const startDate = templateTask.deadline ? parseISO(templateTask.deadline) : new Date();
+    
+    // Calculate end date based on generate_unit and generate_value
+    let endDate: Date;
+    if (unit === 'weeks') {
+      endDate = addWeeks(startDate, value);
+    } else if (unit === 'days') {
+      endDate = addDays(startDate, value);
+    } else if (unit === 'months') {
+      endDate = addMonths(startDate, value);
+    } else {
+      endDate = addWeeks(startDate, value); // Default to weeks
+    }
+    
+    // Generate all weekly occurrences in the date range
+    futureDates = computeWeeklyDatesInRange(templateTask, startDate, endDate);
+    
+  } else {
+    // For other types, use count-based generation
+    const instanceCount = calculateInstanceCount(configOptions);
+    futureDates = computeNextNDates(templateTask, instanceCount);
+  }
 
   if (futureDates.length === 0) {
     console.log('[Recurring] No dates computed for recurring task');
@@ -359,7 +433,7 @@ export async function deleteFutureInstances(templateTask: Task): Promise<number>
       task.title === templateTask.title &&
       !task.recurring_options && // Instance (not recurring)
       task.deadline && // Has deadline
-      parseISO(task.deadline) > now && // Future date
+      parseISO(task.deadline) > now && // ONLY future date (overdue tasks are kept!)
       task.status !== 'done' // Not completed
     ) {
       await deleteTaskFromCache(task.id);
@@ -367,7 +441,7 @@ export async function deleteFutureInstances(templateTask: Task): Promise<number>
     }
   }
 
-  console.log(`[Recurring] Deleted ${deletedCount} future instances for task: ${templateTask.title}`);
+  console.log(`[Recurring] Deleted ${deletedCount} future instances for task: ${templateTask.title} (kept overdue tasks)`);
   return deletedCount;
 }
 

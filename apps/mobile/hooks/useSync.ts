@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Task } from '../types/task';
 import {
   loadTasksFromCache,
   upsertTaskToCache,
   deleteTaskFromCache,
 } from '../database/init';
-import { syncNow, pushTaskToSupabase, deleteTaskFromSupabase } from '../lib/sync';
+import { syncNow, pushTaskToSupabase, pushTasksToSupabaseBatch, deleteTaskFromSupabase } from '../lib/sync';
 import { useAuth } from '../contexts/AuthContext';
 import { generateRecurringInstances, deleteFutureInstances, applyRecurringConfig } from '../utils/recurring';
 import * as Crypto from 'expo-crypto';
@@ -55,16 +55,21 @@ export function useSync(): UseSyncReturn {
 
     try {
       console.log('[useSync] Refreshing tasks from cache for user:', userId);
-      setLoading(true);
+      // Don't set loading to true here - it causes UI flash and might hide tasks
+      // Only set loading for initial load, not for refreshes after mutations
       setError(null);
       const cachedTasks = await loadTasksFromCache(userId);
-      setTasks(cachedTasks);
       console.log(`[useSync] Loaded ${cachedTasks.length} tasks from cache`);
+      
+      // Log breakdown for debugging
+      const withDeadlines = cachedTasks.filter(t => t.deadline);
+      const futureTasks = cachedTasks.filter(t => t.deadline && new Date(t.deadline) > new Date());
+      console.log(`[useSync] Tasks breakdown: ${withDeadlines.length} with deadlines, ${futureTasks.length} future`);
+      
+      setTasks(cachedTasks);
     } catch (err) {
       console.error('[useSync] Error loading tasks:', err);
       setError('Failed to load tasks');
-    } finally {
-      setLoading(false);
     }
   }, [userId]);
 
@@ -128,26 +133,51 @@ export function useSync(): UseSyncReturn {
       // Generate recurring instances if this is a recurring task
       if (newTask.recurring_options && newTask.recurring_options.type !== 'none') {
         console.log('[useSync] Generating recurring instances for task:', newTask.id);
-        await generateRecurringInstances(newTask);
-      }
+        const instances = await generateRecurringInstances(newTask);
+        console.log('[useSync] Generated', instances.length, 'instances');
+        
+        // All instances are now saved to cache by generateRecurringInstances
+        // Refresh from cache immediately to ensure state matches cache (includes all instances)
+        await refreshTasks();
+        
+        // Push template + all instances to Supabase in batch (only if authenticated)
+        if (isAuthenticated) {
+          try {
+            const allTasksToPush = [newTask, ...instances];
+            await pushTasksToSupabaseBatch(allTasksToPush);
+            console.log('[useSync] Template + all instances pushed to Supabase successfully');
+            
+            // Refresh after a delay to allow Supabase to process all inserts and merge any changes
+            setTimeout(async () => {
+              await refreshTasks();
+            }, 2000);
+          } catch (error) {
+            console.error('[useSync] Error pushing tasks to Supabase:', error);
+            setError('Tasks saved locally. Will sync later.');
+            // State already refreshed above, so UI already shows all instances
+          }
+        }
+        // If not authenticated, state was already refreshed above
+      } else {
+        // Not a recurring task
+        // Refresh local view
+        await refreshTasks();
 
-      // Refresh local view
-      await refreshTasks();
-
-      // Push to Supabase in background (only if authenticated)
-      if (isAuthenticated) {
-        pushTaskToSupabase(newTask)
-          .then((returnedTask) => {
-            // Update local cache with returned task from Supabase (includes all recurring fields)
-            console.log('[useSync] Updating cache with Supabase response for task:', returnedTask.id);
-            upsertTaskToCache(returnedTask)
-              .then(() => refreshTasks())
-              .catch((err) => console.error('[useSync] Error updating cache after push:', err));
-          })
-          .catch((err) => {
-            console.error('[useSync] Background push failed:', err);
-            setError('Task saved locally. Will sync later.');
-          });
+        // Push to Supabase in background (only if authenticated)
+        if (isAuthenticated) {
+          pushTaskToSupabase(newTask)
+            .then((returnedTask) => {
+              // Update local cache with returned task from Supabase (includes all recurring fields)
+              console.log('[useSync] Updating cache with Supabase response for task:', returnedTask.id);
+              upsertTaskToCache(returnedTask)
+                .then(() => refreshTasks())
+                .catch((err) => console.error('[useSync] Error updating cache after push:', err));
+            })
+            .catch((err) => {
+              console.error('[useSync] Background push failed:', err);
+              setError('Task saved locally. Will sync later.');
+            });
+        }
       }
     } catch (err) {
       console.error('[useSync] Error adding task:', err);
@@ -191,26 +221,51 @@ export function useSync(): UseSyncReturn {
       // Regenerate future instances if recurring
       if (isRecurring) {
         console.log('[useSync] Regenerating recurring instances for task:', updatedTask.id);
-        await generateRecurringInstances(updatedTask);
-      }
-
-      // Refresh local view
-      await refreshTasks();
-
-      // Push to Supabase in background (only if authenticated)
-      if (isAuthenticated) {
-        pushTaskToSupabase(updatedTask)
-          .then((returnedTask) => {
-            // Update local cache with returned task from Supabase (includes all recurring fields)
-            console.log('[useSync] Updating cache with Supabase response for task:', returnedTask.id);
-            upsertTaskToCache(returnedTask)
-              .then(() => refreshTasks())
-              .catch((err) => console.error('[useSync] Error updating cache after push:', err));
-          })
-          .catch((err) => {
-            console.error('[useSync] Background push failed:', err);
+        const instances = await generateRecurringInstances(updatedTask);
+        console.log('[useSync] Generated', instances.length, 'instances');
+        
+        // All instances are now saved to cache by generateRecurringInstances
+        // Refresh from cache immediately to ensure state matches cache (includes all instances)
+        await refreshTasks();
+        
+        // Push template + all instances to Supabase in batch (only if authenticated)
+        if (isAuthenticated) {
+          try {
+            const allTasksToPush = [updatedTask, ...instances];
+            await pushTasksToSupabaseBatch(allTasksToPush);
+            console.log('[useSync] Template + all instances pushed to Supabase successfully');
+            
+            // Refresh after a delay to allow Supabase to process all inserts and merge any changes
+            setTimeout(async () => {
+              await refreshTasks();
+            }, 2000);
+          } catch (error) {
+            console.error('[useSync] Error pushing tasks to Supabase:', error);
             setError('Changes saved locally. Will sync later.');
-          });
+            // State already refreshed above, so UI already shows all instances
+          }
+        }
+        // If not authenticated, state was already refreshed above
+      } else {
+        // Not a recurring task
+        // Refresh local view
+        await refreshTasks();
+
+        // Push to Supabase in background (only if authenticated)
+        if (isAuthenticated) {
+          pushTaskToSupabase(updatedTask)
+            .then((returnedTask) => {
+              // Update local cache with returned task from Supabase (includes all recurring fields)
+              console.log('[useSync] Updating cache with Supabase response for task:', returnedTask.id);
+              upsertTaskToCache(returnedTask)
+                .then(() => refreshTasks())
+                .catch((err) => console.error('[useSync] Error updating cache after push:', err));
+            })
+            .catch((err) => {
+              console.error('[useSync] Background push failed:', err);
+              setError('Changes saved locally. Will sync later.');
+            });
+        }
       }
     } catch (err) {
       console.error('[useSync] Error updating task:', err);
@@ -271,6 +326,7 @@ export function useSync(): UseSyncReturn {
     
     if (authLoading) {
       console.log('[useSync] Waiting for auth to load...');
+      setLoading(true);
       return;
     }
 
@@ -278,12 +334,13 @@ export function useSync(): UseSyncReturn {
       console.log('[useSync] No userId, clearing tasks');
       setTasks([]);
       setLoading(false);
-      recurringGeneratedRef.current = false; // Reset flag on user change
       return;
     }
 
-    // Load from cache first
+    // Load from cache first (set loading only for initial mount)
+    setLoading(true);
     refreshTasks().then(() => {
+      setLoading(false);
       // Then sync if authenticated
       if (isAuthenticated) {
         console.log('[useSync] Authenticated, starting initial sync...');
@@ -294,7 +351,7 @@ export function useSync(): UseSyncReturn {
         console.log('[useSync] Not authenticated, using cached data only');
       }
     });
-  }, [isAuthenticated, userId, authLoading]);
+  }, [isAuthenticated, userId, authLoading, refreshTasks, syncTasks]);
 
   return {
     tasks,

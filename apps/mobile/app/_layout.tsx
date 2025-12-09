@@ -3,6 +3,7 @@ import { Slot } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useFonts } from 'expo-font';
 import { lightTheme, darkTheme } from '../lib/theme';
 import { initDatabase } from '../database/init';
 import { useColorScheme } from 'react-native';
@@ -14,6 +15,11 @@ import { AuthProvider } from '../contexts/AuthContext';
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [dbReady, setDbReady] = useState(false);
+
+  // Load Alice font
+  const [fontsLoaded] = useFonts({
+    'Alice': require('../assets/fonts/Alice-Regular.ttf'),
+  });
 
   useEffect(() => {
     console.log('[RootLayout] Initializing...');
@@ -35,8 +41,8 @@ export default function RootLayout() {
 
   const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
 
-  if (!dbReady) {
-    return null; // Wait for database to initialize
+  if (!dbReady || !fontsLoaded) {
+    return null; // Wait for database and fonts to initialize
   }
 
   return (

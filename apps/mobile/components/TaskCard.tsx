@@ -12,6 +12,71 @@ interface TaskCardProps {
   onToggleStatus?: () => void;
 }
 
+/**
+ * Format deadline date in Desktop style: "MMM d, yyyy, HH:mm"
+ */
+function formatDeadline(deadline: string): string {
+  const date = new Date(deadline);
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+/**
+ * Check if deadline is overdue or upcoming
+ * Returns label and status for deadline display
+ */
+function getDeadlineStatus(deadline: string, isCompleted: boolean) {
+  const deadlineDate = new Date(deadline);
+  const now = new Date();
+  
+  // Check if overdue (past deadline and not completed)
+  if (!isCompleted && deadlineDate < now) {
+    const timeStr = deadlineDate.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+    return { 
+      label: `Overdue, ${timeStr}`, 
+      isOverdue: true 
+    };
+  }
+  
+  // Check if today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const deadlineDay = new Date(deadlineDate);
+  deadlineDay.setHours(0, 0, 0, 0);
+  
+  const diffDays = Math.floor((deadlineDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    const timeStr = deadlineDate.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+    return { label: `Today, ${timeStr}`, isToday: true };
+  }
+  
+  if (diffDays === 1) {
+    const timeStr = deadlineDate.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+    return { label: `Tomorrow, ${timeStr}`, isTomorrow: true };
+  }
+  
+  // Default: show full formatted date
+  return { label: formatDeadline(deadline), isUpcoming: true };
+}
+
 export function TaskCard({
   task,
   onPress,
@@ -21,6 +86,7 @@ export function TaskCard({
 }: TaskCardProps) {
   const theme = useTheme();
   const isDark = theme.dark;
+  const isCompleted = task.status === 'done';
 
   const priorityColor = isDark
     ? priorityColors.dark[task.priority]
@@ -37,6 +103,9 @@ export function TaskCard({
       ? 'progress-clock'
       : 'circle-outline';
 
+  // Get deadline status
+  const deadlineStatus = task.deadline ? getDeadlineStatus(task.deadline, isCompleted) : null;
+
   return (
     <Card
       mode="elevated"
@@ -44,84 +113,134 @@ export function TaskCard({
         styles.card,
         { backgroundColor: theme.colors.surface },
         task.pinned && { borderColor: theme.colors.primary, borderWidth: 2 },
+        isCompleted && { opacity: 0.6 },
       ]}
     >
       <Pressable onPress={onPress}>
         <View style={styles.cardContent}>
-          {/* Priority indicator */}
-          <View
-            style={[styles.priorityBar, { backgroundColor: priorityColor }]}
-          />
-
-          {/* Status button */}
-          <IconButton
-            icon={statusIcon}
-            iconColor={statusColor}
-            size={24}
-            onPress={onToggleStatus}
-            style={styles.statusButton}
-          />
-
-          {/* Task details */}
-          <View style={styles.detailsContainer}>
-            <Text
-              variant="titleMedium"
+          {/* Top row: Priority dot + Title + Status button */}
+          <View style={styles.topRow}>
+            {/* Priority dot */}
+            <View
               style={[
-                styles.title,
-                { color: theme.colors.onSurface },
-                task.status === 'done' && styles.strikethrough,
+                styles.priorityDot,
+                { backgroundColor: priorityColor },
               ]}
-              numberOfLines={1}
-            >
-              {task.title}
-            </Text>
+            />
 
-            {task.description && (
+            {/* Title and Status button in same row */}
+            <View style={styles.titleRow}>
               <Text
-                variant="bodySmall"
+                variant="titleMedium"
                 style={[
-                  styles.description,
-                  { color: theme.colors.onSurfaceVariant },
+                  styles.title,
+                  { color: theme.colors.onSurface },
+                  isCompleted && styles.strikethrough,
                 ]}
-                numberOfLines={2}
+                numberOfLines={1}
               >
-                {task.description}
+                {task.title}
               </Text>
-            )}
+              {task.pinned && (
+                <Text style={styles.pinnedIcon}>📌</Text>
+              )}
+              
+              {/* Status button */}
+              <IconButton
+                icon={statusIcon}
+                iconColor={statusColor}
+                size={24}
+                onPress={onToggleStatus}
+                style={styles.statusButton}
+              />
+            </View>
+          </View>
 
-            <View style={styles.metaRow}>
+          {/* Description */}
+          {task.description && (
+            <Text
+              variant="bodySmall"
+              style={[
+                styles.description,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+              numberOfLines={2}
+            >
+              {task.description}
+            </Text>
+          )}
+
+          {/* Meta row: Priority Chip, Category Chip, Deadline Chip */}
+          <View style={styles.metaRow}>
+            {/* 1. Priority Chip */}
+            <Chip
+              compact
+              style={[
+                styles.chip,
+                styles.chipSpacing,
+                { backgroundColor: priorityColor + '20' },
+              ]}
+              textStyle={{ fontSize: 11, color: priorityColor }}
+            >
+              {task.priority}
+            </Chip>
+
+            {/* 2. Category Chip */}
+            {task.category && (
               <Chip
                 compact
-                style={[styles.chip, { backgroundColor: theme.colors.secondaryContainer }]}
+                style={[
+                  styles.chip,
+                  styles.chipSpacing,
+                  { backgroundColor: theme.colors.secondaryContainer },
+                ]}
                 textStyle={{ fontSize: 11 }}
+                icon="tag-outline"
               >
                 {task.category}
               </Chip>
+            )}
 
+            {/* 3. Deadline Chip */}
+            {task.deadline && deadlineStatus && (
               <Chip
                 compact
-                style={[styles.chip, { backgroundColor: priorityColor + '20' }]}
-                textStyle={{ fontSize: 11, color: priorityColor }}
+                style={[
+                  styles.chip,
+                  styles.chipSpacing,
+                  deadlineStatus.isOverdue
+                    ? { backgroundColor: '#FFEEEE' }
+                    : deadlineStatus.isToday
+                    ? { backgroundColor: theme.colors.primaryContainer }
+                    : deadlineStatus.isTomorrow
+                    ? { backgroundColor: theme.colors.secondaryContainer }
+                    : { backgroundColor: theme.colors.secondaryContainer },
+                ]}
+                textStyle={{
+                  fontSize: 11,
+                  color: deadlineStatus.isOverdue 
+                    ? '#C40000' 
+                    : deadlineStatus.isToday
+                    ? theme.colors.onPrimaryContainer
+                    : deadlineStatus.isTomorrow
+                    ? theme.colors.onSecondaryContainer
+                    : theme.colors.onSecondaryContainer,
+                }}
+                icon="clock-outline"
               >
-                {task.priority}
+                {deadlineStatus.label}
               </Chip>
-
-              {task.deadline && (
-                <Text
-                  variant="labelSmall"
-                  style={{ color: theme.colors.onSurfaceVariant }}
-                >
-                  📅 {new Date(task.deadline).toLocaleDateString()}
-                </Text>
-              )}
-
-              {!task.synced && (
-                <Text variant="labelSmall" style={{ color: theme.colors.error }}>
-                  ⚠️ Offline
-                </Text>
-              )}
-            </View>
+            )}
           </View>
+
+          {/* Offline badge - bottom right, smaller, no layout shift */}
+          {(task as any).synced === false && (
+            <View style={styles.offlineContainer}>
+              <Text variant="labelSmall" style={[styles.offline, { color: theme.colors.error }]}>
+                ⚠ Offline
+              </Text>
+            </View>
+          )}
 
           {/* Action buttons */}
           <View style={styles.actions}>
@@ -149,28 +268,48 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginVertical: 6,
     borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   cardContent: {
+    padding: 14,
+    overflow: 'visible',
+    alignItems: 'flex-start',
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 8,
+  },
+  priorityDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+    marginTop: 3,
+    alignSelf: 'center',
+  },
+  titleRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-  },
-  priorityBar: {
-    width: 4,
-    height: '100%',
-    borderRadius: 2,
-    marginRight: 8,
-  },
-  statusButton: {
-    margin: 0,
-  },
-  detailsContainer: {
-    flex: 1,
-    marginLeft: 8,
+    justifyContent: 'space-between',
   },
   title: {
     fontWeight: '600',
-    marginBottom: 4,
+    flex: 1,
+  },
+  pinnedIcon: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  statusButton: {
+    margin: 0,
+    marginLeft: 4,
   },
   strikethrough: {
     textDecorationLine: 'line-through',
@@ -178,19 +317,32 @@ const styles = StyleSheet.create({
   },
   description: {
     marginBottom: 8,
+    width: '100%',
   },
   metaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 6,
+    marginTop: 6,
+    width: '100%',
   },
   chip: {
-    height: 24,
+    // Remove fixed height - let chips size naturally
+  },
+  chipSpacing: {
+    marginRight: 6,
+    marginTop: 6,
+  },
+  offlineContainer: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+  },
+  offline: {
+    fontSize: 10,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 8,
   },
 });
-
