@@ -1,0 +1,24 @@
+{
+  "name": "mydailyops",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MyDailyOps - Task management app with mobile and desktop support",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:mobile": "pnpm --filter mydailyops-mobile start",
+    "dev:desktop": "pnpm --filter @mydailyops/desktop tauri:dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
+
