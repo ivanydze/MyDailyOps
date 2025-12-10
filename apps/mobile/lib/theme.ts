@@ -87,9 +87,9 @@ export const lightTheme: MD3Theme = {
     onError: 'rgb(255, 255, 255)',
     errorContainer: 'rgb(255, 218, 214)',
     onErrorContainer: 'rgb(65, 0, 2)',
-    background: 'rgb(255, 251, 255)',
+    background: 'rgba(255, 251, 255, 0.88)', // More transparent to show watermark
     onBackground: 'rgb(29, 27, 32)',
-    surface: 'rgb(255, 251, 255)',
+    surface: 'rgba(255, 251, 255, 0.92)', // Slightly transparent to show watermark
     onSurface: 'rgb(29, 27, 32)',
     surfaceVariant: 'rgb(231, 224, 236)',
     onSurfaceVariant: 'rgb(73, 69, 79)',
@@ -138,9 +138,9 @@ export const darkTheme: MD3Theme = {
     onError: 'rgb(105, 0, 5)',
     errorContainer: 'rgb(147, 0, 10)',
     onErrorContainer: 'rgb(255, 218, 214)',
-    background: 'rgb(29, 27, 32)',
+    background: 'rgba(29, 27, 32, 0.88)', // More transparent to show watermark
     onBackground: 'rgb(231, 225, 229)',
-    surface: 'rgb(29, 27, 32)',
+    surface: 'rgba(29, 27, 32, 0.92)', // Slightly transparent to show watermark
     onSurface: 'rgb(231, 225, 229)',
     surfaceVariant: 'rgb(73, 69, 79)',
     onSurfaceVariant: 'rgb(202, 196, 208)',
@@ -196,4 +196,40 @@ export const statusColors = {
     done: '#66BB6A',
   },
 };
+
+/**
+ * Get transparent background color for screens to show watermark
+ * Accepts either colorScheme string or theme.dark boolean
+ */
+export function getTransparentBackground(colorScheme?: 'light' | 'dark' | null | undefined | boolean): string {
+  const isDark = typeof colorScheme === 'boolean' ? colorScheme : colorScheme === 'dark';
+  if (isDark) {
+    return 'rgba(29, 27, 32, 0.90)'; // 90% opacity - better balance
+  }
+  return 'rgba(255, 251, 255, 0.92)'; // 92% opacity - better balance
+}
+
+/**
+ * Get transparent surface color for cards to show watermark behind them
+ * Accepts either colorScheme string or theme.dark boolean
+ */
+export function getTransparentSurface(colorScheme?: 'light' | 'dark' | null | undefined | boolean): string {
+  const isDark = typeof colorScheme === 'boolean' ? colorScheme : colorScheme === 'dark';
+  if (isDark) {
+    return 'rgba(29, 27, 32, 0.93)'; // 93% opacity - better readability while showing watermark
+  }
+  return 'rgba(255, 251, 255, 0.95)'; // 95% opacity - better readability while showing watermark
+}
+
+/**
+ * Get transparent primary container color for buttons/badges to show watermark behind them
+ * Accepts either colorScheme string or theme.dark boolean
+ */
+export function getTransparentPrimaryContainer(colorScheme?: 'light' | 'dark' | null | undefined | boolean): string {
+  const isDark = typeof colorScheme === 'boolean' ? colorScheme : colorScheme === 'dark';
+  if (isDark) {
+    return 'rgba(79, 55, 139, 0.90)'; // Primary container color with transparency for dark mode
+  }
+  return 'rgba(234, 221, 255, 0.90)'; // Primary container color with transparency for light mode
+}
 

@@ -9,6 +9,7 @@ import { useSync } from '../../hooks/useSync';
 import { Task, TaskFilter } from '../../types/task';
 import { FAB } from '../../components/FAB';
 import { groupTasksByDate } from '../../utils/groupTasksByDate';
+import { getTransparentBackground } from '../../lib/theme';
 
 /**
  * Main tasks screen with full functionality
@@ -188,7 +189,7 @@ export default function TasksScreen() {
   }, [groupedTasks, currentFilter]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: getTransparentBackground(theme.dark) }]}>
       <Appbar.Header>
         <Appbar.Content title="MyDailyOps" />
         <Appbar.Action icon="magnify" onPress={handleToggleSearch} />

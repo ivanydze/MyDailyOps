@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import Layout from "./components/Layout";
@@ -29,7 +29,12 @@ function App() {
         const { data, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error("[App] Error getting session:", sessionError);
+          // Handle invalid refresh token - session will be cleared by supabaseClient
+          if (sessionError.message?.includes('Invalid Refresh Token') || sessionError.message?.includes('Refresh Token Not Found')) {
+            console.log("[App] Invalid refresh token detected, redirecting to login");
+          } else {
+            console.error("[App] Error getting session:", sessionError);
+          }
           setIsAuthenticated(false);
           setIsInitialized(true);
           return;
@@ -111,27 +116,44 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginScreen />} />
-        <Route
-          element={
-            <ProtectedRoute />
-          }
-        >
-          <Route
-            element={<Layout />}
-          >
-            <Route path="/" element={<Today />} />
-            <Route path="/today" element={<Today />} />
-            <Route path="/tasks" element={<AllTasks />} />
-            <Route path="/tasks/new" element={<NewTask />} />
-            <Route path="/tasks/:id/edit" element={<EditTask />} />
-          </Route>
-        </Route>
-      </Routes>
-      <Toaster position="top-right" />
-    </BrowserRouter>
+    <Fragment>
+      {/* Subtle branded watermark background - fixed position to be behind all content */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'url(/logo.png)',
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center 20%',
+          backgroundSize: '65%',
+          opacity: 'var(--watermark-opacity, 0.08)',
+          zIndex: 0, // Behind content but visible through transparent backgrounds
+        }}
+      />
+      
+      <div className="relative w-full h-full" style={{ zIndex: 1, position: 'relative' }}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginScreen />} />
+            <Route
+              element={
+                <ProtectedRoute />
+              }
+            >
+              <Route
+                element={<Layout />}
+              >
+                <Route path="/" element={<Today />} />
+                <Route path="/today" element={<Today />} />
+                <Route path="/tasks" element={<AllTasks />} />
+                <Route path="/tasks/new" element={<NewTask />} />
+                <Route path="/tasks/:id/edit" element={<EditTask />} />
+              </Route>
+            </Route>
+          </Routes>
+          <Toaster position="top-right" />
+        </BrowserRouter>
+      </div>
+    </Fragment>
   );
 }
 

@@ -51,14 +51,34 @@ function dayOfWeekToWeekday(day: number): 'sun' | 'mon' | 'tue' | 'wed' | 'thu' 
 }
 
 /**
+ * Count how many times a weekday occurs in a month
+ */
+function countWeekdaysInMonth(
+  year: number,
+  month: number,
+  weekday: number
+): number {
+  const lastDate = getDate(endOfMonth(new Date(year, month, 1)));
+  let count = 0;
+  for (let day = 1; day <= lastDate; day++) {
+    const date = new Date(year, month, day);
+    if (date.getDay() === weekday) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
  * Get the Nth occurrence of a weekday in a month
+ * Returns null if the Nth occurrence doesn't exist (e.g., 5th Monday when month only has 4)
  */
 function getNthWeekdayInMonth(
   year: number,
   month: number,
   weekday: 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat',
   weekNumber: number
-): Date {
+): Date | null {
   const dayOfWeek = weekdayToDayOfWeek(weekday);
   const firstOfMonth = new Date(year, month, 1);
   const firstWeekday = firstOfMonth.getDay();
@@ -66,16 +86,25 @@ function getNthWeekdayInMonth(
   let offset = (dayOfWeek - firstWeekday + 7) % 7;
   
   if (weekNumber === -1) {
+    // Last occurrence - always exists
     const lastOfMonth = endOfMonth(firstOfMonth);
     const lastWeekday = lastOfMonth.getDay();
     const lastOffset = (lastWeekday - dayOfWeek + 7) % 7;
     const lastDate = new Date(year, month, getDate(lastOfMonth) - lastOffset);
     return lastDate;
   } else {
+    // For 1st-5th occurrence, validate that it exists
+    const actualCount = countWeekdaysInMonth(year, month, dayOfWeek);
+    if (weekNumber > actualCount) {
+      // The Nth occurrence doesn't exist in this month
+      return null;
+    }
+    
     const targetDate = new Date(year, month, 1 + offset + (weekNumber - 1) * 7);
     const endDate = endOfMonth(firstOfMonth);
     if (targetDate > endDate) {
-      return endDate;
+      // Should not happen if validation above works, but double-check
+      return null;
     }
     return targetDate;
   }
@@ -222,26 +251,43 @@ function computeNextNDates(templateTask: Task, count: number): Date[] {
         const weekday = options.weekdays[0];
         currentDate = addMonths(currentDate, 1);
         
-        let candidate = getNthWeekdayInMonth(
-          currentDate.getFullYear(),
-          currentDate.getMonth(),
-          weekday,
-          options.weekNumber
-        );
-
-        // Ensure it's after the current date
-        if (!isAfter(candidate, startDate) || isEqual(candidate, startDate)) {
-          currentDate = addMonths(currentDate, 1);
+        // Keep searching until we find a valid date (skip months where Nth occurrence doesn't exist)
+        let candidate: Date | null = null;
+        let attempts = 0;
+        const maxAttempts = 12; // Prevent infinite loop (max 12 months)
+        
+        while (!candidate && attempts < maxAttempts) {
           candidate = getNthWeekdayInMonth(
             currentDate.getFullYear(),
             currentDate.getMonth(),
             weekday,
             options.weekNumber
           );
+          
+          // If candidate is null, the Nth occurrence doesn't exist in this month - skip it
+          if (!candidate) {
+            currentDate = addMonths(currentDate, 1);
+            attempts++;
+            continue;
+          }
+          
+          // Ensure it's after the start date
+          if (!isAfter(candidate, startDate) || isEqual(candidate, startDate)) {
+            currentDate = addMonths(currentDate, 1);
+            candidate = null; // Reset to search next month
+            attempts++;
+            continue;
+          }
+          
+          // Valid candidate found
+          break;
         }
 
-        nextDate = candidate;
-        currentDate = new Date(nextDate);
+        if (candidate) {
+          nextDate = candidate;
+          currentDate = new Date(nextDate);
+        }
+        // If no valid candidate found after maxAttempts, nextDate remains null and generation stops
         break;
       }
 
@@ -321,7 +367,21 @@ function calculateInstanceCount(options: RecurringOptions): number {
       return 3;
     
     case 'interval':
-      // For interval, use generate_value as number of instances
+      // For interval, calculate how many instances fit in the time range
+      const intervalDays = options.interval_days || 1;
+      if (unit === 'days') {
+        // Example: "every 3 days for 9 days" = 9 / 3 = 3 instances
+        return Math.floor(value / intervalDays);
+      } else if (unit === 'weeks') {
+        // Convert weeks to days and calculate
+        const daysInRange = value * 7;
+        return Math.floor(daysInRange / intervalDays);
+      } else if (unit === 'months') {
+        // Approximate months as 30 days
+        const daysInRange = value * 30;
+        return Math.floor(daysInRange / intervalDays);
+      }
+      // Fallback: use value as-is (legacy behavior)
       return value;
     
     default:

@@ -6,6 +6,7 @@ import { useSync } from '../../hooks/useSync';
 import { TaskPriority, RecurringOptions } from '../../types/task';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import GenerateAheadSelector, { GenerateAheadValue } from '../../components/recurring/GenerateAheadSelector';
+import { getTransparentBackground } from '../../lib/theme';
 
 /**
  * Add new task screen with full date & time picker and new recurring JSON structure
@@ -218,7 +219,7 @@ export default function AddTaskScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: getTransparentBackground(theme.dark) }]}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Add Task" />

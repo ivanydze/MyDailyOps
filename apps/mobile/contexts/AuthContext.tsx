@@ -31,9 +31,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log('[AuthContext] Setting up auth listener...');
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        // Handle invalid refresh token
+        if (error.message?.includes('Invalid Refresh Token') || error.message?.includes('Refresh Token Not Found')) {
+          console.log('[AuthContext] Invalid refresh token detected, clearing session');
+          supabase.auth.signOut().catch(() => {}); // Clear Supabase client
+          setSession(null);
+          setLoading(false);
+          return;
+        }
+        console.error('[AuthContext] Error getting session:', error);
+      }
       console.log('[AuthContext] Initial session:', session?.user?.email || 'none');
       setSession(session);
+      setLoading(false);
+    }).catch((error: any) => {
+      // Handle invalid refresh token in catch block
+      if (error?.message?.includes('Invalid Refresh Token') || error?.message?.includes('Refresh Token Not Found')) {
+        console.log('[AuthContext] Invalid refresh token detected (in catch), clearing session');
+        supabase.auth.signOut().catch(() => {});
+        setSession(null);
+      } else {
+        console.error('[AuthContext] Exception getting session:', error);
+      }
       setLoading(false);
     });
 

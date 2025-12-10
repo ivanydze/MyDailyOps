@@ -3,6 +3,7 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import { getTransparentBackground } from '../lib/theme';
 
 /**
  * Root index - redirects to dashboard or login
@@ -24,7 +25,7 @@ export default function Index() {
 
   // Show loading while checking auth
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: getTransparentBackground(theme.dark) }]}>
       <ActivityIndicator size="large" color={theme.colors.primary} />
       <Text variant="bodyMedium" style={{ marginTop: 16, color: theme.colors.onSurfaceVariant }}>
         Loading...

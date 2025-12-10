@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDatabase } from '../../database/init';
 import { useSync } from '../../hooks/useSync';
 import { useAuth } from '../../contexts/AuthContext';
+import { getTransparentBackground } from '../../lib/theme';
 
 /**
  * Settings screen with full functionality
@@ -68,7 +69,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: getTransparentBackground(theme.dark) }]}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Settings" />

@@ -4,6 +4,7 @@ import { Text, Surface, useTheme, IconButton, ProgressBar, Chip } from 'react-na
 import { useRouter } from 'expo-router';
 import { useDashboard, getTimeUntil, getDayLabel } from '../../hooks/useDashboard';
 import { Task } from '../../types/task';
+import { getTransparentBackground } from '../../lib/theme';
 
 /**
  * Motion/Notion Hybrid Dashboard
@@ -45,7 +46,7 @@ export default function DashboardScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: getTransparentBackground(theme.dark) }]}>
       {/* Header */}
       <View style={styles.header}>
         <View>

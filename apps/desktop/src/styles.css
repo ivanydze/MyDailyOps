@@ -72,3 +72,12 @@ body {
   height: 100vh;
 }
 
+/* Watermark opacity - slightly lighter in dark mode */
+:root {
+  --watermark-opacity: 0.08;
+}
+
+.dark {
+  --watermark-opacity: 0.06;
+}
+

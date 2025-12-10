@@ -25,13 +25,23 @@ export function useAuth() {
       // Supabase v2: getSession returns { data: { session }, error }
       const { data, error } = await supabase.auth.getSession();
       if (error) {
-        console.error("[Auth] Error getting session:", error);
+        // Handle invalid refresh token - session will be cleared by supabaseClient
+        if (error.message?.includes('Invalid Refresh Token') || error.message?.includes('Refresh Token Not Found')) {
+          console.log("[Auth] Invalid refresh token detected, session cleared");
+        } else {
+          console.error("[Auth] Error getting session:", error);
+        }
         setIsAuthenticated(false);
       } else {
         setIsAuthenticated(!!data?.session);
       }
-    } catch (error) {
-      console.error("[Auth] Exception checking auth:", error);
+    } catch (error: any) {
+      // Handle invalid refresh token in catch block
+      if (error?.message?.includes('Invalid Refresh Token') || error?.message?.includes('Refresh Token Not Found')) {
+        console.log("[Auth] Invalid refresh token detected (in catch), session cleared");
+      } else {
+        console.error("[Auth] Exception checking auth:", error);
+      }
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
