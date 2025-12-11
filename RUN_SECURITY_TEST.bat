@@ -1,0 +1,5 @@
+@echo off
+cd apps\desktop
+pnpm tsx test-security-api.ts ivanydze@gmail.com London2010 info@pavels.lv q1w2e3 https://kmnxcbgzxcbfgfyufasu.supabase.co eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttbnhjYmd6eGNiZmdmeXVmYXN1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDY1NzA5NSwiZXhwIjoyMDgwMjMzMDk1fQ.JnPJtkyBypI5Br0CmHHPoqWarfU-WhW208AES9W76io
+pause
+

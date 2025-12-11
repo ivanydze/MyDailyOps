@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase, signIn } from "../lib/supabaseClient";
+import { signIn } from "../lib/supabaseClient";
 import toast from "react-hot-toast";
 
 export default function LoginScreen() {

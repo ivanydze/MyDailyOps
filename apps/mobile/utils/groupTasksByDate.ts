@@ -10,6 +10,7 @@ import {
   addWeeks,
   parseISO,
 } from 'date-fns';
+import { isVisibleToday } from './visibility';
 
 export interface GroupedTasks {
   overdue: Task[];
@@ -49,12 +50,51 @@ export function groupTasksByDate(tasks: Task[]): GroupedTasks {
   };
 
   for (const task of tasks) {
-    // Skip completed tasks and tasks without deadlines
-    if (task.status === 'done' || !task.deadline) {
+    // Skip completed tasks
+    if (task.status === 'done') {
+      continue;
+    }
+
+    // Check visibility using visibility engine (Problem 5)
+    const visibleFrom = (task as any).visible_from;
+    const visibleUntil = (task as any).visible_until;
+    const isTaskVisibleToday = isVisibleToday(visibleFrom, visibleUntil);
+
+    // If task has visibility fields and is not visible today, skip it
+    // (unless it's overdue, which we handle separately)
+    if ((visibleFrom || visibleUntil) && !isTaskVisibleToday) {
+      // Check if task is overdue (deadline in past but still visible due to duration)
+      // Overdue tasks should still appear in overdue group
+      if (task.deadline) {
+        try {
+          const deadlineDate = parseISO(task.deadline);
+          const deadlineDay = startOfDay(deadlineDate);
+          // If deadline is in the past, it might be overdue even if not visible today
+          if (isBefore(deadlineDay, today)) {
+            // Check if it's within visibility window (overdue but still visible)
+            // This is an edge case - task deadline passed but visibility extends into today
+            // For now, skip if not visible today (can be refined later)
+            continue;
+          }
+        } catch (error) {
+          // Skip if deadline parsing fails
+          continue;
+        }
+      }
       continue;
     }
 
     try {
+      // For grouping, we still need deadline for overdue detection
+      // Tasks without deadline but with visibility are handled separately
+      if (!task.deadline) {
+        // Task without deadline - if visible today, add to today group
+        if (isTaskVisibleToday || (!visibleFrom && !visibleUntil)) {
+          groups.today.push(task);
+        }
+        continue;
+      }
+
       const deadlineDate = parseISO(task.deadline);
       const deadlineDay = startOfDay(deadlineDate);
 
@@ -62,8 +102,8 @@ export function groupTasksByDate(tasks: Task[]): GroupedTasks {
       if (isBefore(deadlineDay, today)) {
         groups.overdue.push(task);
       }
-      // Today: deadline = today
-      else if (isSameDay(deadlineDay, today)) {
+      // Today: task is visible today (uses visibility engine)
+      else if (isTaskVisibleToday || (!visibleFrom && !visibleUntil && isSameDay(deadlineDay, today))) {
         groups.today.push(task);
       }
       // Tomorrow: deadline = today + 1

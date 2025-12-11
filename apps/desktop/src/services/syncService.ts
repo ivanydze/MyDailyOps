@@ -76,7 +76,7 @@ export async function pullFromSupabase(userId: string): Promise<Task[]> {
         title: row.title,
         description: row.description || '',
         priority: row.priority,
-        category: row.category,
+        category: row.category || '',
         deadline: row.deadline,
         status: row.status,
         pinned: row.pinned === true || row.pinned === 1 || row.pinned === '1',
@@ -84,7 +84,7 @@ export async function pullFromSupabase(userId: string): Promise<Task[]> {
         updated_at: row.updated_at,
         recurring_options: recurringOptions,
         is_completed: isCompleted,
-      };
+      } as Task;
     });
 
     console.log(`[Sync] Fetched ${supabaseTasks.length} tasks from Supabase`);
@@ -299,7 +299,7 @@ export async function pushTasksToSupabaseBatch(tasks: Task[]): Promise<Task[]> {
         title: row.title,
         description: row.description || '',
         priority: row.priority,
-        category: row.category,
+        category: row.category || '',
         deadline: row.deadline,
         status: row.status,
         pinned: row.pinned === true || row.pinned === 1 || row.pinned === '1',
@@ -307,7 +307,7 @@ export async function pushTasksToSupabaseBatch(tasks: Task[]): Promise<Task[]> {
         updated_at: row.updated_at,
         recurring_options: recurringOptions,
         is_completed: isCompleted,
-      };
+      } as Task;
     });
 
     // Update local cache with all returned tasks
@@ -342,8 +342,8 @@ export async function deleteTaskFromSupabase(taskId: string, userId: string): Pr
 
     if (error) throw error;
 
-    // Also delete from local cache
-    await db.deleteTaskFromCache(taskId);
+    // Also delete from local cache (already verified user_id in Supabase query above)
+    await db.deleteTaskFromCache(taskId, userId);
 
     console.log('[Sync] Task deleted successfully:', taskId);
   } catch (error) {

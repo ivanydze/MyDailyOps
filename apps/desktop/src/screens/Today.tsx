@@ -2,8 +2,9 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskStore } from "../stores/taskStore";
 import TaskCard from "../components/TaskCard";
-import { isToday, isPast, parseISO } from "date-fns";
+import { isPast, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
+import { isVisibleToday } from "../utils/visibility";
 
 export default function Today() {
   const navigate = useNavigate();
@@ -25,13 +26,26 @@ export default function Today() {
     console.log('[Today] Tasks updated:', tasks.length);
   }, [tasks]);
 
-  // Filter tasks for today
+  // Filter tasks for today using visibility engine (Problem 5)
+  // Uses visible_from and visible_until fields for proper duration-based filtering
   const todayTasks = tasks.filter((task) => {
-    if (task.status === "done") return false; // Hide completed tasks
-    if (!task.deadline) return false;
+    // Hide completed tasks
+    if (task.status === "done") return false;
 
+    // Use visibility fields if available (new logic)
+    const visibleFrom = (task as any).visible_from;
+    const visibleUntil = (task as any).visible_until;
+    
+    if (visibleFrom || visibleUntil) {
+      // Task has visibility range - check if today is within range
+      return isVisibleToday(visibleFrom, visibleUntil);
+    }
+
+    // Fallback: legacy behavior for tasks without visibility fields
+    // Only show tasks with deadline that are today or overdue
+    if (!task.deadline) return false;
     const deadline = parseISO(task.deadline);
-    return isToday(deadline) || (isPast(deadline) && !task.status);
+    return isPast(deadline) || deadline.toDateString() === new Date().toDateString();
   });
 
   // Sort: overdue first, then by priority (high > medium > low), then by deadline

@@ -1,0 +1,164 @@
+﻿
+> @mydailyops/desktop@0.1.0 tauri:build C:\Dev\MyDailyOps\apps\desktop
+> tauri build
+
+node.exe :         Info Looking up installed tauri packages to check mismatched versions...
+At C:\Users\ivany\AppData\Roaming\npm\pnpm.ps1:24 char:5
++     & "node$exe"  "$basedir/node_modules/pnpm/bin/pnpm.cjs" $args
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (        Info Lo...hed versions...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+     Running beforeBuildCommand `pnpm build`
+
+> @mydailyops/desktop@0.1.0 build C:\Dev\MyDailyOps\apps\desktop
+> tsc && vite build
+
+src/App.tsx(2,40): error TS6133: 'Navigate' is declared but its value is never read.
+src/App.tsx(11,28): error TS6133: 'syncNow' is declared but its value is never read.
+src/App.tsx(18,10): error TS6133: 'isAuthenticated' is declared but its value is never read.
+src/components/TaskCard.tsx(19,28): error TS2339: Property 'status' does not exist on type 'Task'.
+src/components/TaskCard.tsx(23,15): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/components/TaskCard.tsx(25,36): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/components/TaskCard.tsx(74,19): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/lib/db.ts(117,13): error TS18047: 'database' is possibly 'null'.
+src/lib/db.ts(143,5): error TS2322: Type '{ id: any; user_id: any; title: any; description: any; priority: any; category: any; deadline: any; status: any; pinned: boolean; created_at: any; updated_at: any; recurring_options: any; is_completed: boolean; }[]' is not assignable to type 'Task[]'.
+  Type '{ id: any; user_id: any; title: any; description: any; priority: any; category: any; deadline: any; status: any; pinned: boolean; created_at: any; updated_at: any; recurring_options: any; is_completed: boolean; }' is missing the following properties from type 'Task': isCompleted, createdAt, updatedAt, isRecurring
+src/lib/db.ts(251,14): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/lib/db.ts(256,14): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/lib/db.ts(257,14): error TS2339: Property 'status' does not exist on type 'Task'.
+src/lib/db.ts(258,14): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/lib/db.ts(259,14): error TS2551: Property 'created_at' does not exist on type 'Task'. Did you mean 'createdAt'?
+src/lib/db.ts(260,14): error TS2551: Property 'updated_at' does not exist on type 'Task'. Did you mean 'updatedAt'?
+src/lib/db.ts(282,26): error TS18047: 'database' is possibly 'null'.
+src/lib/db.ts(308,7): error TS2353: Object literal may only specify known properties, and 'user_id' does not exist in type 'Task'.
+src/lib/db.ts(358,38): error TS6133: 'id' is declared but its value is never read.
+src/lib/supabaseClient.ts(8,39): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/supabaseClient.ts(10,33): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/lib/supabaseClient.ts(11,37): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/screens/AllTasks.tsx(5,10): error TS6133: 'format' is declared but its value is never read.
+src/screens/AllTasks.tsx(5,57): error TS6133: 'startOfWeek' is declared but its value is never read.
+src/screens/AllTasks.tsx(5,70): error TS6133: 'endOfWeek' is declared but its value is never read.
+src/screens/AllTasks.tsx(28,45): error TS2339: Property 'status' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(35,13): error TS6133: 'tomorrow' is declared but its value is never read.
+src/screens/AllTasks.tsx(39,19): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(43,40): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(53,45): error TS2339: Property 'status' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(61,45): error TS2339: Property 'status' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(71,11): error TS18048: 'task.category' is possibly 'undefined'.
+src/screens/AllTasks.tsx(82,13): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(82,26): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(83,14): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(83,26): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(91,13): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(91,27): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(92,27): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(92,60): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(94,13): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(95,13): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/AllTasks.tsx(98,25): error TS2551: Property 'created_at' does not exist on type 'Task'. Did you mean 'createdAt'?
+src/screens/AllTasks.tsx(98,60): error TS2551: Property 'created_at' does not exist on type 'Task'. Did you mean 'createdAt'?
+src/screens/AllTasks.tsx(104,33): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'Partial<Task>'.
+src/screens/EditTask.tsx(42,63): error TS2339: Property '0' does not exist on type '("sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat")[] | undefined'.
+src/screens/EditTask.tsx(83,24): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/EditTask.tsx(83,49): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/EditTask.tsx(84,22): error TS2339: Property 'status' does not exist on type 'Task'.
+src/screens/EditTask.tsx(85,22): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/screens/EditTask.tsx(113,64): error TS2339: Property '0' does not exist on type '("sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat")[] | undefined'.
+src/screens/EditTask.tsx(115,11): error TS18048: 'prev' is possibly 'undefined'.
+src/screens/EditTask.tsx(116,16): error TS18048: 'prev' is possibly 'undefined'.
+src/screens/EditTask.tsx(149,13): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/EditTask.tsx(170,13): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/EditTask.tsx(173,22): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/EditTask.tsx(211,9): error TS2353: Object literal may only specify known properties, and 'deadline' does not exist in type 'Partial<Task>'.
+src/screens/EditTask.tsx(559,36): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/EditTask.tsx(569,20): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/EditTask.tsx(621,38): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/LoginScreen.tsx(3,10): error TS6133: 'supabase' is declared but its value is never read.
+src/screens/NewTask.tsx(40,63): error TS2339: Property '0' does not exist on type '("sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat")[] | undefined'.
+src/screens/NewTask.tsx(58,64): error TS2339: Property '0' does not exist on type '("sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat")[] | undefined'.
+src/screens/NewTask.tsx(60,11): error TS18048: 'prev' is possibly 'undefined'.
+src/screens/NewTask.tsx(61,16): error TS18048: 'prev' is possibly 'undefined'.
+src/screens/NewTask.tsx(63,20): error TS2488: Type '("sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat")[] | undefined' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/screens/NewTask.tsx(73,11): error TS6133: 'base' is declared but its value is never read.
+src/screens/NewTask.tsx(96,13): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/NewTask.tsx(117,13): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/NewTask.tsx(120,22): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/NewTask.tsx(158,9): error TS2353: Object literal may only specify known properties, and 'deadline' does not exist in type 'Omit<Task, "id" | "user_id" | "created_at" | "updated_at">'.
+src/screens/NewTask.tsx(479,36): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/NewTask.tsx(489,20): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/NewTask.tsx(541,38): error TS18048: 'selectedWeekdays' is possibly 'undefined'.
+src/screens/Today.tsx(30,14): error TS2339: Property 'status' does not exist on type 'Task'.
+src/screens/Today.tsx(31,15): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(33,36): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(34,60): error TS2339: Property 'status' does not exist on type 'Task'.
+src/screens/Today.tsx(40,24): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(40,54): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(41,24): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(41,54): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(51,11): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(51,25): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(52,25): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(52,58): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(54,11): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(55,11): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/screens/Today.tsx(61,33): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'Partial<Task>'.
+src/services/syncService.ts(56,11): error TS2322: Type '{ id: any; user_id: any; title: any; description: any; priority: any; category: any; deadline: any; status: any; pinned: boolean; created_at: any; updated_at: any; recurring_options: any; is_completed: boolean; }[]' is not assignable to type 'Task[]'.
+  Type '{ id: any; user_id: any; title: any; description: any; priority: any; category: any; deadline: any; status: any; pinned: boolean; created_at: any; updated_at: any; recurring_options: any; is_completed: boolean; }' is missing the following properties from type 'Task': isCompleted, createdAt, updatedAt, isRecurring
+src/services/syncService.ts(163,23): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/services/syncService.ts(168,24): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/services/syncService.ts(169,22): error TS2339: Property 'status' does not exist on type 'Task'.
+src/services/syncService.ts(170,22): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/services/syncService.ts(171,26): error TS2551: Property 'created_at' does not exist on type 'Task'. Did you mean 'createdAt'?
+src/services/syncService.ts(172,26): error TS2551: Property 'updated_at' does not exist on type 'Task'. Did you mean 'updatedAt'?
+src/services/syncService.ts(208,7): error TS2353: Object literal may only specify known properties, and 'user_id' does not exist in type 'Task'.
+src/services/syncService.ts(251,23): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/services/syncService.ts(256,24): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/services/syncService.ts(257,22): error TS2339: Property 'status' does not exist on type 'Task'.
+src/services/syncService.ts(258,22): error TS2339: Property 'pinned' does not exist on type 'Task'.
+src/services/syncService.ts(259,26): error TS2551: Property 'created_at' does not exist on type 'Task'. Did you mean 'createdAt'?
+src/services/syncService.ts(260,26): error TS2551: Property 'updated_at' does not exist on type 'Task'. Did you mean 'updatedAt'?
+src/services/syncService.ts(281,11): error TS2322: Type '{ id: any; user_id: any; title: any; description: any; priority: any; category: any; deadline: any; status: any; pinned: boolean; created_at: any; updated_at: any; recurring_options: any; is_completed: boolean; }[]' is not assignable to type 'Task[]'.
+  Type '{ id: any; user_id: any; title: any; description: any; priority: any; category: any; deadline: any; status: any; pinned: boolean; created_at: any; updated_at: any; recurring_options: any; is_completed: boolean; }' is missing the following properties from type 'Task': isCompleted, createdAt, updatedAt, isRecurring
+src/services/syncService.ts(388,49): error TS2551: Property 'updated_at' does not exist on type 'Task'. Did you mean 'updatedAt'?
+src/services/syncService.ts(440,9): error TS2353: Object literal may only specify known properties, and 'user_id' does not exist in type 'Task'.
+src/services/syncService.ts(460,49): error TS2551: Property 'updated_at' does not exist on type 'Task'. Did you mean 'updatedAt'?
+src/services/syncService.ts(461,51): error TS2551: Property 'updated_at' does not exist on type 'Task'. Did you mean 'updatedAt'?
+src/stores/taskStore.ts(12,3): error TS6133: 'deleteAllInstances' is declared but its value is never read.
+src/stores/taskStore.ts(55,9): error TS2322: Type '{ id: any; user_id: any; title: any; description: any; priority: any; category: any; deadline: any; status: any; pinned: any; created_at: any; updated_at: any; recurring_options: any; is_completed: boolean; }[]' is not assignable to type 'Task[]'.
+  Type '{ id: any; user_id: any; title: any; description: any; priority: any; category: any; deadline: any; status: any; pinned: any; created_at: any; updated_at: any; recurring_options: any; is_completed: boolean; }' is missing the following properties from type 'Task': isCompleted, createdAt, updatedAt, isRecurring
+src/stores/taskStore.ts(94,11): error TS2353: Object literal may only specify known properties, and 'user_id' does not exist in type 'Task'.
+src/stores/taskStore.ts(97,24): error TS2339: Property 'status' does not exist on type 'Omit<Task, "id" | "user_id" | "created_at" | "updated_at">'.
+src/stores/taskStore.ts(98,24): error TS2339: Property 'pinned' does not exist on type 'Omit<Task, "id" | "user_id" | "created_at" | "updated_at">'.
+src/stores/taskStore.ts(99,30): error TS2339: Property 'status' does not exist on type 'Omit<Task, "id" | "user_id" | "created_at" | "updated_at">'.
+src/utils/recurring.ts(44,10): error TS6133: 'dayOfWeekToWeekday' is declared but its value is never read.
+src/utils/recurring.ts(138,20): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(139,48): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(202,34): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(202,67): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(206,20): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(207,48): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(423,36): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(423,69): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(456,9): error TS2353: Object literal may only specify known properties, and 'deadline' does not exist in type 'Task'.
+src/utils/recurring.ts(496,7): error TS2353: Object literal may only specify known properties, and 'deadline' does not exist in type 'Task'.
+src/utils/recurring.ts(522,10): error TS18048: 'task.recurring_options' is possibly 'undefined'.
+src/utils/recurring.ts(532,10): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/utils/recurring.ts(532,35): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/utils/recurring.ts(545,10): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/utils/recurring.ts(545,31): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/utils/recurring.ts(548,5): error TS18048: 'task.recurring_options' is possibly 'undefined'.
+src/utils/recurring.ts(557,31): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/utils/recurring.ts(577,31): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/utils/recurring.ts(589,12): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/utils/recurring.ts(589,37): error TS2339: Property 'user_id' does not exist on type 'Task'.
+src/utils/recurring.ts(592,12): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(593,21): error TS2339: Property 'deadline' does not exist on type 'Task'.
+src/utils/recurring.ts(594,12): error TS2339: Property 'status' does not exist on type 'Task'.
+../../packages/core/src/index.ts(3,1): error TS2308: Module "./models/task" has already exported a member named 'RecurringOptions'. Consider explicitly re-exporting to resolve the ambiguity.
+../../packages/core/src/index.ts(3,1): error TS2308: Module "./models/task" has already exported a member named 'Task'. Consider explicitly re-exporting to resolve the ambiguity.
+../../packages/core/src/index.ts(3,1): error TS2308: Module "./models/task" has already exported a member named 'TaskPriority'. Consider explicitly re-exporting to resolve the ambiguity.
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 2.
+beforeBuildCommand `pnpm build` failed with exit code 1
+       Error beforeBuildCommand `pnpm build` failed with exit code 1
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.

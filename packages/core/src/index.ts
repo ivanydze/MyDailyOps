@@ -1,4 +1,10 @@
 // Export all public APIs
-export * from "./models/task";
+// Export shared types (main Task type matching Supabase schema)
 export * from "./models/shared";
+
+// Export task utilities (but not conflicting Task type)
+export { createTask, normalizeTask } from "./models/task";
+export type { RecurringType } from "./models/task";
+
+// Export utils
 export * from "./utils";

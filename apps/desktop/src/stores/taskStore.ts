@@ -9,8 +9,8 @@ import {
   applyRecurringConfig,
   isRecurringTemplate,
   findAllInstancesFromTemplate,
-  deleteAllInstances,
 } from "../utils/recurring";
+import { calculateVisibility } from "../utils/visibility";
 
 interface TaskState {
   tasks: Task[];
@@ -66,7 +66,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           updated_at: row.updated_at,
           recurring_options: row.recurring_options ? (typeof row.recurring_options === 'string' ? JSON.parse(row.recurring_options) : row.recurring_options) : null,
           is_completed: row.status === 'done',
-        }));
+          // Visibility fields (Problem 5)
+          duration_days: row.duration_days ?? null,
+          start_date: row.start_date ?? null,
+          visible_from: row.visible_from ?? null,
+          visible_until: row.visible_until ?? null,
+        } as Task));
       }
       
       console.log('[TaskStore] Loaded', tasks.length, 'tasks');
@@ -86,6 +91,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
       const now = new Date().toISOString();
       
+      // Calculate visibility (Problem 5: Deadline-anchored duration)
+      const durationDays = (task as any).duration_days ?? null;
+      const startDate = (task as any).start_date ?? null;
+      const visibility = calculateVisibility(task.deadline, durationDays, startDate);
+      
       // Apply recurring config with defaults if recurring
       const taskWithConfig = applyRecurringConfig(
         {
@@ -97,6 +107,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           status: task.status || 'pending',
           pinned: task.pinned || false,
           is_completed: task.status === 'done',
+          // Add visibility fields
+          duration_days: durationDays,
+          start_date: startDate,
+          visible_from: visibility.visible_from,
+          visible_until: visibility.visible_until,
         },
         task.recurring_options || null
       );
@@ -150,9 +165,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   updateTask: async (id, updates) => {
     try {
-      const currentTask = get().tasks.find((t) => t.id === id);
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+
+      // SECURITY: Verify task belongs to current user before updating
+      const currentTask = await db.getTaskById(id, userId);
       if (!currentTask) {
-        throw new Error("Task not found");
+        throw new Error("Task not found or access denied");
+      }
+
+      // Also check in local state for consistency
+      const localTask = get().tasks.find((t) => t.id === id && t.user_id === userId);
+      if (!localTask) {
+        throw new Error("Task not found in local state");
       }
 
       // Apply recurring config with defaults if recurring
@@ -162,10 +189,22 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         updated_at: new Date().toISOString(),
       };
       
-      const updatedTask = applyRecurringConfig(
-        taskWithUpdates,
-        taskWithUpdates.recurring_options || null
-      );
+      // Recalculate visibility if deadline, duration_days, or start_date changed (Problem 5 & 11)
+      const finalDeadline = taskWithUpdates.deadline ?? currentTask.deadline;
+      const finalDurationDays = (taskWithUpdates as any).duration_days ?? (currentTask as any).duration_days ?? null;
+      const finalStartDate = (taskWithUpdates as any).start_date ?? (currentTask as any).start_date ?? null;
+      const visibility = calculateVisibility(finalDeadline, finalDurationDays, finalStartDate);
+      
+      const updatedTask = {
+        ...applyRecurringConfig(
+          taskWithUpdates,
+          taskWithUpdates.recurring_options || null
+        ),
+        // Update visibility fields
+        duration_days: finalDurationDays,
+        visible_from: visibility.visible_from,
+        visible_until: visibility.visible_until,
+      };
 
       // Check if this is a recurring task - if so, handle instance regeneration
       const isRecurring = updatedTask.recurring_options && updatedTask.recurring_options.type !== 'none';
@@ -233,11 +272,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         throw new Error("Not authenticated");
       }
 
-      // Load the task first to determine if it's a template or instance
-      const taskToDelete = await db.getTaskById(id);
+      // SECURITY: Load the task and verify it belongs to current user
+      const taskToDelete = await db.getTaskById(id, userId);
       if (!taskToDelete) {
-        console.warn('[TaskStore] Task not found:', id);
-        return;
+        console.warn('[TaskStore] Task not found or access denied:', id);
+        throw new Error("Task not found or access denied");
+      }
+
+      // Additional security check: verify user_id matches
+      if (taskToDelete.user_id !== userId) {
+        console.error('[TaskStore] SECURITY: Attempt to delete task belonging to another user:', id);
+        throw new Error("Access denied: Cannot delete tasks belonging to other users");
       }
 
       const tasksToDelete: string[] = [id]; // Always delete the requested task
@@ -251,17 +296,22 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         const instances = findAllInstancesFromTemplate(taskToDelete, allTasks);
         
         for (const instance of instances) {
-          tasksToDelete.push(instance.id);
-          await db.deleteTaskFromCache(instance.id);
+          // SECURITY: Verify instance belongs to user before deleting
+          if (instance.user_id === userId) {
+            tasksToDelete.push(instance.id);
+            await db.deleteTaskFromCache(instance.id, userId);
+          } else {
+            console.warn('[TaskStore] SECURITY: Skipping instance belonging to another user:', instance.id);
+          }
         }
         
         // Delete the template
-        await db.deleteTaskFromCache(id);
+        await db.deleteTaskFromCache(id, userId);
         
         console.log(`[TaskStore] Deleted template + ${instances.length} instances`);
       } else {
         // Regular task or instance - delete only this task
-        await db.deleteTaskFromCache(id);
+        await db.deleteTaskFromCache(id, userId);
         console.log('[TaskStore] Deleted single task (non-template)');
       }
       

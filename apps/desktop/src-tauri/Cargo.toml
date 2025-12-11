@@ -13,10 +13,10 @@ edition = "2021"
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0", features = [] }
+tauri = { version = "2.0", features = ["devtools"] }
 
 # Плагины
-tauri-plugin-shell = "2.0"
+tauri-plugin-shell = { version = "2.0", features = [] }
 tauri-plugin-sql = { version = "2.0", features = ["sqlite"] }
 
 # Async runtime

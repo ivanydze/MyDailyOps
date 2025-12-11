@@ -12,7 +12,10 @@
     "tauri:build": "tauri build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "clean": "rm -rf dist src-tauri/target",
-    "test:recurring": "tsx test-recurring-automated.ts"
+    "test:recurring": "tsx test-recurring-automated.ts",
+    "test:security": "node node_modules/tsx/dist/cli.mjs test-security-api.ts",
+    "test:visibility": "tsx test-visibility-comprehensive.ts",
+    "test:visibility:section": "tsx test-visibility-comprehensive.ts --section"
   },
   "dependencies": {
     "@mydailyops/core": "workspace:*",

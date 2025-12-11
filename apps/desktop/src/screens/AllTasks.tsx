@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskStore } from "../stores/taskStore";
 import TaskCard from "../components/TaskCard";
-import { format, parseISO, isPast, isToday, isTomorrow, startOfWeek, endOfWeek, addDays } from "date-fns";
+import { parseISO, isPast, isToday, isTomorrow, addDays } from "date-fns";
 import { Plus, Search, Filter } from "lucide-react";
 import type { TaskFilter } from "@mydailyops/core";
 
@@ -32,7 +32,6 @@ export default function AllTasks() {
     if (currentFilter !== "all" && currentFilter !== "done") {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const tomorrow = addDays(today, 1);
       const weekEnd = addDays(today, 7);
 
       result = result.filter((task) => {
@@ -68,7 +67,7 @@ export default function AllTasks() {
         (task) =>
           task.title.toLowerCase().includes(query) ||
           task.description?.toLowerCase().includes(query) ||
-          task.category.toLowerCase().includes(query)
+          (task.category && task.category.toLowerCase().includes(query))
       );
     }
 

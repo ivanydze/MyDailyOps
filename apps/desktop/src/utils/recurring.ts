@@ -21,6 +21,7 @@ import {
   startOfDay,
   isBefore,
 } from 'date-fns';
+import { calculateVisibility } from './visibility';
 
 /**
  * Map weekday string to day of week (0 = Sunday, 6 = Saturday)
@@ -38,21 +39,6 @@ function weekdayToDayOfWeek(weekday: 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fr
   return map[weekday];
 }
 
-/**
- * Map day of week (0-6) to weekday string
- */
-function dayOfWeekToWeekday(day: number): 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' {
-  const weekdays: ('sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat')[] = [
-    'sun',
-    'mon',
-    'tue',
-    'wed',
-    'thu',
-    'fri',
-    'sat',
-  ];
-  return weekdays[day];
-}
 
 /**
  * Count how many times a weekday occurs in a month
@@ -450,6 +436,10 @@ export async function generateRecurringInstances(templateTask: Task): Promise<Ta
 
     // Create instance for each future date
     for (const date of futureDates) {
+      // Calculate visibility for this instance (Problem 5)
+      const durationDays = (templateTask as any).duration_days ?? null;
+      const visibility = calculateVisibility(date.toISOString(), durationDays);
+      
       const instance: Task = {
         ...templateTask,
         id: crypto.randomUUID(),
@@ -458,9 +448,13 @@ export async function generateRecurringInstances(templateTask: Task): Promise<Ta
         pinned: false,
         created_at: now,
         updated_at: now,
-        recurring_options: null, // Instances are not recurring themselves
+        recurring_options: null, // Instances don't have recurring options
         is_completed: false,
-      };
+        // Add visibility fields for this instance
+        duration_days: durationDays,
+        visible_from: visibility.visible_from,
+        visible_until: visibility.visible_until,
+      } as Task;
 
       instances.push(instance);
     }
@@ -490,6 +484,10 @@ export async function generateRecurringInstances(templateTask: Task): Promise<Ta
 
   // Create instance for each future date
   for (const date of futureDates) {
+    // Calculate visibility for this instance (Problem 5)
+    const durationDays = (templateTask as any).duration_days ?? null;
+    const visibility = calculateVisibility(date.toISOString(), durationDays);
+    
     const instance: Task = {
       ...templateTask,
       id: crypto.randomUUID(),
@@ -500,7 +498,11 @@ export async function generateRecurringInstances(templateTask: Task): Promise<Ta
       updated_at: now,
       recurring_options: null, // Instances are not recurring themselves
       is_completed: false,
-    };
+      // Add visibility fields for this instance
+      duration_days: durationDays,
+      visible_from: visibility.visible_from,
+      visible_until: visibility.visible_until,
+    } as Task;
 
     instances.push(instance);
   }
@@ -519,6 +521,7 @@ export async function generateRecurringInstances(templateTask: Task): Promise<Ta
  */
 export function isRecurringTemplate(task: Task): boolean {
   return task.recurring_options !== null && 
+         task.recurring_options !== undefined &&
          task.recurring_options.type !== 'none';
 }
 
@@ -545,6 +548,7 @@ export function findTemplateFromInstance(instance: Task, allTasks: Task[]): Task
     task.user_id === instance.user_id &&
     task.title === instance.title &&
     task.recurring_options !== null && // Template has recurring_options
+    task.recurring_options !== undefined &&
     task.recurring_options.type !== 'none'
   ) || null;
 }
@@ -561,8 +565,13 @@ export async function deleteAllInstances(templateTask: Task): Promise<number> {
   let deletedCount = 0;
 
   for (const instance of instances) {
-    await db.deleteTaskFromCache(instance.id);
-    deletedCount++;
+    // SECURITY: Verify instance belongs to user before deleting
+    if (instance.user_id === userId) {
+      await db.deleteTaskFromCache(instance.id, userId);
+      deletedCount++;
+    } else {
+      console.warn('[Recurring] SECURITY: Skipping instance belonging to another user:', instance.id);
+    }
   }
 
   console.log(`[Recurring] Deleted ${deletedCount} instances for template: ${templateTask.title}`);
@@ -593,8 +602,13 @@ export async function deleteFutureInstances(templateTask: Task): Promise<number>
       parseISO(task.deadline) > now && // ONLY future date (overdue tasks are kept!)
       task.status !== 'done' // Not completed
     ) {
-      await db.deleteTaskFromCache(task.id);
-      deletedCount++;
+      // SECURITY: Verify task belongs to user before deleting
+      if (task.user_id === userId) {
+        await db.deleteTaskFromCache(task.id, userId);
+        deletedCount++;
+      } else {
+        console.warn('[Recurring] SECURITY: Skipping task belonging to another user:', task.id);
+      }
     }
   }
 

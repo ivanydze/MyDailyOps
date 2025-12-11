@@ -1,5 +1,5 @@
 import { useEffect, useState, Fragment } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -8,14 +8,13 @@ import Today from "./screens/Today";
 import AllTasks from "./screens/AllTasks";
 import NewTask from "./screens/NewTask";
 import EditTask from "./screens/EditTask";
-import { init as initSync, syncNow } from "./services/syncService";
-import { supabase, restoreSession } from "./lib/supabaseClient";
-import { getCurrentUserId } from "./lib/supabaseClient";
+import { init as initSync } from "./services/syncService";
+import { supabase, restoreSession, getCurrentUserId } from "./lib/supabaseClient";
 import { useTaskStore } from "./stores/taskStore";
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [, setIsAuthenticated] = useState(false);
   const syncTasks = useTaskStore((state) => state.sync);
 
   useEffect(() => {

@@ -37,7 +37,8 @@ export default function NewTask() {
     custom: false,
   });
 
-  const weekdayOptions: { value: RecurringOptions['weekdays'][0]; label: string }[] = [
+  type WeekdayType = NonNullable<RecurringOptions['weekdays']>[number];
+  const weekdayOptions: { value: WeekdayType; label: string }[] = [
     { value: 'sun', label: 'Sunday' },
     { value: 'mon', label: 'Monday' },
     { value: 'tue', label: 'Tuesday' },
@@ -55,12 +56,13 @@ export default function NewTask() {
     { value: -1, label: 'Last' },
   ];
 
-  const toggleWeekday = (weekday: RecurringOptions['weekdays'][0]) => {
+  const toggleWeekday = (weekday: WeekdayType) => {
     setSelectedWeekdays(prev => {
-      if (prev.includes(weekday)) {
-        return prev.filter(w => w !== weekday);
+      const current = prev || [];
+      if (current.includes(weekday)) {
+        return current.filter(w => w !== weekday);
       } else {
-        return [...prev, weekday];
+        return [...current, weekday];
       }
     });
   };
@@ -69,8 +71,6 @@ export default function NewTask() {
     if (!isRecurring || recurringType === "none") {
       return null;
     }
-
-    const base: RecurringOptions = { type: recurringType };
 
     switch (recurringType) {
       case 'daily':
@@ -93,7 +93,7 @@ export default function NewTask() {
         };
 
       case 'weekly':
-        if (selectedWeekdays.length === 0) return null;
+        if (!selectedWeekdays || selectedWeekdays.length === 0) return null;
         return {
           type: 'weekly',
           weekdays: [...selectedWeekdays],
@@ -114,7 +114,7 @@ export default function NewTask() {
         };
 
       case 'monthly_weekday':
-        if (selectedWeekdays.length === 0) return null;
+        if (!selectedWeekdays || selectedWeekdays.length === 0) return null;
         return {
           type: 'monthly_weekday',
           weekdays: [selectedWeekdays[0]],
@@ -476,7 +476,7 @@ export default function NewTask() {
                       >
                         <input
                           type="checkbox"
-                          checked={selectedWeekdays.includes(option.value)}
+                          checked={selectedWeekdays?.includes(option.value) || false}
                           onChange={() => toggleWeekday(option.value)}
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
@@ -486,7 +486,7 @@ export default function NewTask() {
                       </label>
                     ))}
                   </div>
-                  {selectedWeekdays.length === 0 && (
+                  {(!selectedWeekdays || selectedWeekdays.length === 0) && (
                     <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                       Please select at least one weekday
                     </p>
@@ -538,7 +538,7 @@ export default function NewTask() {
                           <input
                             type="radio"
                             name="monthlyWeekday"
-                            checked={selectedWeekdays[0] === option.value}
+                            checked={selectedWeekdays?.[0] === option.value || false}
                             onChange={() => setSelectedWeekdays([option.value])}
                             className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                           />

@@ -86,9 +86,14 @@ export async function pullFromSupabase(userId: string): Promise<Task[]> {
     for (const localTask of localTasks) {
       if (!supabaseTaskIds.has(localTask.id)) {
         // This task exists locally but not on Supabase - delete it
-        console.log(`[Sync] Deleting local task not found in Supabase: ${localTask.id} (${localTask.title})`);
-        await deleteTaskFromCache(localTask.id);
-        deletedCount++;
+        // SECURITY: Verify task belongs to user before deleting
+        if (localTask.user_id === userId) {
+          console.log(`[Sync] Deleting local task not found in Supabase: ${localTask.id} (${localTask.title})`);
+          await deleteTaskFromCache(localTask.id, userId);
+          deletedCount++;
+        } else {
+          console.warn('[Sync] SECURITY: Skipping task belonging to another user during sync:', localTask.id);
+        }
       }
     }
 

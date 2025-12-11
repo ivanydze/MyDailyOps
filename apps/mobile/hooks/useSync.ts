@@ -118,6 +118,12 @@ export function useSync(): UseSyncReturn {
     try {
       const now = new Date().toISOString();
       
+      // Calculate visibility (Problem 5: Deadline-anchored duration)
+      const { calculateVisibility } = await import('../utils/visibility');
+      const durationDays = (taskData as any).duration_days ?? null;
+      const startDate = (taskData as any).start_date ?? null;
+      const visibility = calculateVisibility(taskData.deadline, durationDays, startDate);
+
       // Apply recurring config with defaults
       const taskWithConfig = applyRecurringConfig(
         { ...taskData, id: '', user_id: userId, created_at: now, updated_at: now } as Task,
@@ -131,7 +137,12 @@ export function useSync(): UseSyncReturn {
         created_at: now,
         updated_at: now,
         is_completed: taskData.status === 'done',
-      };
+        // Add visibility fields
+        duration_days: durationDays,
+        start_date: startDate,
+        visible_from: visibility.visible_from,
+        visible_until: visibility.visible_until,
+      } as Task;
 
       console.log('[useSync] Adding task:', newTask.id);
 
@@ -202,15 +213,47 @@ export function useSync(): UseSyncReturn {
       return;
     }
 
+    // SECURITY: Verify task belongs to current user before updating
+    if (task.user_id !== userId) {
+      console.error('[useSync] SECURITY: Attempt to update task belonging to another user:', task.id);
+      throw new Error('Access denied: Cannot update tasks belonging to other users');
+    }
+
     try {
+      // Recalculate visibility if deadline, duration_days, or start_date changed (Problem 5 & 11)
+      const { calculateVisibility } = await import('../utils/visibility');
+      const durationDays = (task as any).duration_days ?? null;
+      const startDate = (task as any).start_date ?? null;
+      const visibility = calculateVisibility(task.deadline, durationDays, startDate);
+      
+      // Update task with recalculated visibility
+      const taskWithVisibility = {
+        ...task,
+        duration_days: durationDays,
+        start_date: startDate,
+        visible_from: visibility.visible_from,
+        visible_until: visibility.visible_until,
+      };
+
+      // Verify task exists and belongs to user
+      const existingTask = await getTaskById(task.id, userId);
+      if (!existingTask) {
+        throw new Error('Task not found or access denied');
+      }
+
       // Apply recurring config with defaults if recurring
-      const taskWithConfig = applyRecurringConfig(task, task.recurring_options || null);
+      const taskWithConfig = applyRecurringConfig(taskWithVisibility, task.recurring_options || null);
 
       const updatedTask: Task = {
         ...taskWithConfig,
         updated_at: new Date().toISOString(),
         is_completed: task.status === 'done',
-      };
+        // Ensure visibility fields are included
+        duration_days: durationDays,
+        start_date: startDate,
+        visible_from: visibility.visible_from,
+        visible_until: visibility.visible_until,
+      } as Task;
 
       console.log('[useSync] Updating task:', updatedTask.id);
 
@@ -294,11 +337,17 @@ export function useSync(): UseSyncReturn {
     try {
       console.log('[useSync] Deleting task:', taskId);
       
-      // Load the task first to determine if it's a template or instance
-      const taskToDelete = await getTaskById(taskId);
+      // SECURITY: Load the task and verify it belongs to current user
+      const taskToDelete = await getTaskById(taskId, userId);
       if (!taskToDelete) {
-        console.warn('[useSync] Task not found:', taskId);
-        return;
+        console.warn('[useSync] Task not found or access denied:', taskId);
+        throw new Error('Task not found or access denied');
+      }
+
+      // Additional security check: verify user_id matches
+      if (taskToDelete.user_id !== userId) {
+        console.error('[useSync] SECURITY: Attempt to delete task belonging to another user:', taskId);
+        throw new Error('Access denied: Cannot delete tasks belonging to other users');
       }
 
       const tasksToDelete: string[] = [taskId]; // Always delete the requested task
@@ -312,17 +361,22 @@ export function useSync(): UseSyncReturn {
         const instances = findAllInstancesFromTemplate(taskToDelete, allTasks);
         
         for (const instance of instances) {
-          tasksToDelete.push(instance.id);
-          await deleteTaskFromCache(instance.id);
+          // SECURITY: Verify instance belongs to user before deleting
+          if (instance.user_id === userId) {
+            tasksToDelete.push(instance.id);
+            await deleteTaskFromCache(instance.id, userId);
+          } else {
+            console.warn('[useSync] SECURITY: Skipping instance belonging to another user:', instance.id);
+          }
         }
         
         // Delete the template
-        await deleteTaskFromCache(taskId);
+        await deleteTaskFromCache(taskId, userId);
         
         console.log(`[useSync] Deleted template + ${instances.length} instances`);
       } else {
         // Regular task or instance - delete only this task
-        await deleteTaskFromCache(taskId);
+        await deleteTaskFromCache(taskId, userId);
         console.log('[useSync] Deleted single task (non-template)');
       }
 

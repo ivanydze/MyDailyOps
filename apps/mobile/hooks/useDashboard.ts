@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Task } from '../types/task';
 import { useSync } from './useSync';
+import { isVisibleToday, isUpcoming } from '../utils/visibility';
+import { parseISO, isBefore, startOfDay } from 'date-fns';
 
 export interface DashboardData {
   today: Task[];
@@ -59,35 +61,58 @@ export function useDashboard(): DashboardData {
       // Skip completed tasks for today/overdue/upcoming
       if (task.status === 'done') return;
 
-      if (!task.deadline) {
-        // No deadline - add to upcoming as "someday"
-        upcomingTasks.push(task);
-        return;
+      // Use visibility engine (Problem 4 & 5)
+      const visibleFrom = (task as any).visible_from;
+      const visibleUntil = (task as any).visible_until;
+      const isTaskVisibleToday = isVisibleToday(visibleFrom, visibleUntil);
+      const isTaskUpcoming = isUpcoming(visibleFrom, now, 7);
+
+      // Today: tasks visible today (using visibility engine)
+      if (isTaskVisibleToday) {
+        todayTasks.push(task);
+        return; // Don't add to other groups
       }
 
-      const deadline = new Date(task.deadline);
-      const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
-
-      if (deadlineDate < today) {
-        // Overdue
-        overdueTasks.push(task);
-      } else if (deadlineDate.getTime() === today.getTime()) {
-        // Today
-        todayTasks.push(task);
-      } else if (deadline < weekEnd) {
-        // Upcoming (within the week)
+      // Upcoming: tasks that will become visible in the next 7 days (Problem 4)
+      // Formula: visible_from > today && visible_from <= today + 7
+      if (isTaskUpcoming) {
         upcomingTasks.push(task);
-      } else {
-        // Later - still add to upcoming but limit
+        return; // Don't add to overdue
+      }
+
+      // Overdue: tasks with deadline < today (fallback for legacy tasks without visibility)
+      // Note: Tasks with visibility fields that are overdue would have been caught by isVisibleToday
+      // if they're still visible. Otherwise, check deadline.
+      if (task.deadline) {
+        try {
+          const deadlineDate = startOfDay(parseISO(task.deadline));
+          const todayStart = startOfDay(now);
+          if (isBefore(deadlineDate, todayStart)) {
+            // Overdue - deadline passed but task might still be visible due to duration
+            // If not visible today and not upcoming, it's overdue
+            overdueTasks.push(task);
+            return;
+          }
+        } catch (error) {
+          // Skip if deadline parsing fails
+          console.error('[Dashboard] Error parsing deadline:', error);
+        }
+      }
+
+      // Legacy: tasks without visibility fields and without deadline
+      // Add to upcoming as "someday" (only if no visibility fields)
+      if (!visibleFrom && !visibleUntil && !task.deadline) {
         upcomingTasks.push(task);
       }
     });
 
-    // Sort today by deadline time
+    // Sort today by deadline time (or visible_from if no deadline)
     todayTasks.sort((a, b) => {
-      if (!a.deadline) return 1;
-      if (!b.deadline) return -1;
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      const aDate = a.deadline ? parseISO(a.deadline).getTime() : 
+                    ((a as any).visible_from ? parseISO((a as any).visible_from).getTime() : 0);
+      const bDate = b.deadline ? parseISO(b.deadline).getTime() : 
+                    ((b as any).visible_from ? parseISO((b as any).visible_from).getTime() : 0);
+      return aDate - bDate;
     });
 
     // Sort overdue by how long overdue (oldest first)
@@ -97,11 +122,28 @@ export function useDashboard(): DashboardData {
       return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
     });
 
-    // Sort upcoming by deadline
+    // Sort upcoming by visible_from (when task becomes visible)
     upcomingTasks.sort((a, b) => {
+      const aFrom = (a as any).visible_from;
+      const bFrom = (b as any).visible_from;
+      
+      // Sort by visible_from if available (new logic - Problem 4)
+      if (aFrom && bFrom) {
+        try {
+          return parseISO(aFrom).getTime() - parseISO(bFrom).getTime();
+        } catch {
+          // Fall through to deadline sorting if parsing fails
+        }
+      }
+      
+      // Fallback: sort by deadline (legacy)
       if (!a.deadline) return 1;
       if (!b.deadline) return -1;
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      try {
+        return parseISO(a.deadline).getTime() - parseISO(b.deadline).getTime();
+      } catch {
+        return 0;
+      }
     });
 
     const weeklyPercent = weeklyTotal > 0 ? Math.round((weeklyCompleted / weeklyTotal) * 100) : 0;

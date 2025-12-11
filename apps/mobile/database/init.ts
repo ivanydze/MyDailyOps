@@ -36,6 +36,29 @@ async function addColumnIfMissing(
  * Migrate existing database to add ALL recurring fields (legacy + JSON)
  * Uses PRAGMA table_info to check if columns exist before adding
  */
+/**
+ * Migrate existing tables to add visibility fields if missing (Problem 5)
+ */
+async function migrateVisibilityFields(database: SQLite.SQLiteDatabase): Promise<void> {
+  const columns = [
+    { name: 'duration_days', type: 'INTEGER' },
+    { name: 'start_date', type: 'TEXT' },
+    { name: 'visible_from', type: 'TEXT' },
+    { name: 'visible_until', type: 'TEXT' },
+  ];
+
+  for (const col of columns) {
+    try {
+      await database.execAsync(`ALTER TABLE tasks ADD COLUMN ${col.name} ${col.type}`);
+    } catch (error: any) {
+      // Column might already exist, ignore
+      if (!error?.message?.includes('duplicate column')) {
+        console.warn(`[Database] Could not add visibility column ${col.name}:`, error);
+      }
+    }
+  }
+}
+
 async function migrateRecurringFields(database: SQLite.SQLiteDatabase): Promise<void> {
   try {
     console.log('[Database] 🔄 Checking for recurring columns...');
@@ -87,6 +110,11 @@ export async function initDatabase(): Promise<SQLite.SQLiteDatabase> {
       last_generated_at TEXT,
       -- New JSON recurring options
       recurring_options TEXT,
+      -- Visibility fields (Problem 5: Deadline-anchored duration)
+      duration_days INTEGER,
+      start_date TEXT,
+      visible_from TEXT,
+      visible_until TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -100,6 +128,7 @@ export async function initDatabase(): Promise<SQLite.SQLiteDatabase> {
   // 🔥 CRITICAL: Check and migrate recurring fields for EXISTING tables
   // CREATE TABLE IF NOT EXISTS won't add columns to existing tables!
   await migrateRecurringFields(db);
+  await migrateVisibilityFields(db);
 
   // Diagnostic: Log actual table structure
   try {
@@ -186,6 +215,11 @@ export async function loadTasksFromCache(userId: string): Promise<Task[]> {
       // Recurring options - parse from JSON (legacy fields ignored, JSON is source of truth)
       recurring_options: recurringOptions,
       is_completed: isCompleted,
+      // Visibility fields (Problem 5)
+      duration_days: row.duration_days ?? null,
+      start_date: row.start_date ?? null,
+      visible_from: row.visible_from ?? null,
+      visible_until: row.visible_until ?? null,
     };
   });
 }
@@ -235,8 +269,9 @@ export async function upsertTaskToCache(task: Task): Promise<void> {
         id, user_id, title, description, priority, category, deadline, status, pinned, 
         created_at, updated_at,
         recurring, recurring_type, recurring_interval_days, recurring_weekday, 
-        recurring_day_of_month, last_generated_at, recurring_options
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        recurring_day_of_month, last_generated_at, recurring_options,
+        duration_days, start_date, visible_from, visible_until
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         description = excluded.description,
@@ -252,7 +287,11 @@ export async function upsertTaskToCache(task: Task): Promise<void> {
         recurring_weekday = excluded.recurring_weekday,
         recurring_day_of_month = excluded.recurring_day_of_month,
         last_generated_at = excluded.last_generated_at,
-        recurring_options = excluded.recurring_options`,
+        recurring_options = excluded.recurring_options,
+        duration_days = excluded.duration_days,
+        start_date = excluded.start_date,
+        visible_from = excluded.visible_from,
+        visible_until = excluded.visible_until`,
       [
         task.id,
         task.user_id,
@@ -272,6 +311,10 @@ export async function upsertTaskToCache(task: Task): Promise<void> {
         recurringDayOfMonth,
         null, // last_generated_at - legacy field, not used in pre-generation model
         recurringOptionsJson,
+        durationDays,
+        startDate,
+        visibleFrom,
+        visibleUntil,
       ]
     );
   } catch (error) {
@@ -281,15 +324,15 @@ export async function upsertTaskToCache(task: Task): Promise<void> {
 }
 
 /**
- * Get task by ID
+ * Get task by ID - SECURITY: Must filter by user_id to prevent cross-user access
  * Handles both legacy recurring fields and new JSON structure
  */
-export async function getTaskById(id: string): Promise<Task | null> {
+export async function getTaskById(id: string, userId: string): Promise<Task | null> {
   const db = getDatabase();
   
   const row = await db.getFirstAsync<any>(
-    `SELECT * FROM tasks WHERE id = ?`,
-    [id]
+    `SELECT * FROM tasks WHERE id = ? AND user_id = ?`,
+    [id, userId]
   );
 
   if (!row) return null;
@@ -330,11 +373,18 @@ export async function getTaskById(id: string): Promise<Task | null> {
 }
 
 /**
- * Delete task from cache
+ * Delete task from cache - SECURITY: Must filter by user_id to prevent cross-user deletion
  */
-export async function deleteTaskFromCache(id: string): Promise<void> {
+export async function deleteTaskFromCache(id: string, userId: string): Promise<void> {
   const db = getDatabase();
-  await db.runAsync(`DELETE FROM tasks WHERE id = ?`, [id]);
+  const result = await db.runAsync(`DELETE FROM tasks WHERE id = ? AND user_id = ?`, [id, userId]);
+  
+  // Check if any rows were affected
+  if (result.changes === 0) {
+    console.warn('[Database] Task not found or access denied:', id);
+    throw new Error('Task not found or access denied');
+  }
+  
   console.log('[Database] Deleted task:', id);
 }
 
@@ -455,6 +505,11 @@ export async function resetDatabase(): Promise<void> {
         last_generated_at TEXT,
         -- New JSON recurring options
         recurring_options TEXT,
+        -- Visibility fields (Problem 5: Deadline-anchored duration)
+        duration_days INTEGER,
+        start_date TEXT,
+        visible_from TEXT,
+        visible_until TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
