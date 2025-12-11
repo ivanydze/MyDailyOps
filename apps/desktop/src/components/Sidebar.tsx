@@ -6,7 +6,8 @@ import {
   Plus, 
   Moon,
   Sun,
-  LogOut
+  LogOut,
+  Calendar
 } from "lucide-react";
 import { useThemeStore } from "../stores/themeStore";
 import { signOut } from "../lib/supabaseClient";
@@ -46,6 +47,7 @@ export default function Sidebar() {
   const navItems = [
     { path: "/", icon: Home, label: "Today" },
     { path: "/tasks", icon: ListTodo, label: "All Tasks" },
+    { path: "/calendar", icon: Calendar, label: "Calendar" },
     { path: "/tasks/new", icon: Plus, label: "New Task" },
   ];
 
@@ -60,7 +62,10 @@ export default function Sidebar() {
       <nav className="flex-1 p-4 space-y-2">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          // Check if active - for calendar, check if path starts with /calendar
+          const isActive = item.path === "/calendar"
+            ? location.pathname.startsWith("/calendar")
+            : location.pathname === item.path;
           
           return (
             <Link

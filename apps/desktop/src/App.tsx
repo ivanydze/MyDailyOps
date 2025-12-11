@@ -8,6 +8,11 @@ import Today from "./screens/Today";
 import AllTasks from "./screens/AllTasks";
 import NewTask from "./screens/NewTask";
 import EditTask from "./screens/EditTask";
+import CalendarDay from "./screens/CalendarDay";
+import CalendarWeek from "./screens/CalendarWeek";
+import CalendarMonth from "./screens/CalendarMonth";
+import CalendarYear from "./screens/CalendarYear";
+import Calendar from "./screens/Calendar";
 import { init as initSync } from "./services/syncService";
 import { supabase, restoreSession, getCurrentUserId } from "./lib/supabaseClient";
 import { useTaskStore } from "./stores/taskStore";
@@ -146,6 +151,11 @@ function App() {
                 <Route path="/tasks" element={<AllTasks />} />
                 <Route path="/tasks/new" element={<NewTask />} />
                 <Route path="/tasks/:id/edit" element={<EditTask />} />
+                <Route path="/calendar" element={<Calendar />} />
+                <Route path="/calendar/day" element={<CalendarDay />} />
+                <Route path="/calendar/week" element={<CalendarWeek />} />
+                <Route path="/calendar/month" element={<CalendarMonth />} />
+                <Route path="/calendar/year" element={<CalendarYear />} />
               </Route>
             </Route>
           </Routes>

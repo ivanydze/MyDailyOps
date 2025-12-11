@@ -15,7 +15,11 @@
     "test:recurring": "tsx test-recurring-automated.ts",
     "test:security": "node node_modules/tsx/dist/cli.mjs test-security-api.ts",
     "test:visibility": "tsx test-visibility-comprehensive.ts",
-    "test:visibility:section": "tsx test-visibility-comprehensive.ts --section"
+    "test:visibility:section": "tsx test-visibility-comprehensive.ts --section",
+    "test:calendar": "tsx test-calendar-utilities.ts",
+    "test:calendar:section": "tsx test-calendar-utilities.ts --section",
+    "test:calendar:hook": "tsx test-calendar-hook.ts",
+    "test:calendar:hook:section": "tsx test-calendar-hook.ts --section"
   },
   "dependencies": {
     "@mydailyops/core": "workspace:*",
