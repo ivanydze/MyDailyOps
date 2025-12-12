@@ -16,7 +16,11 @@ import {
   isEqual,
   startOfDay,
   isBefore,
+  subDays,
+  formatISO,
+  format,
 } from 'date-fns';
+import { calculateVisibility, isTaskVisible } from './visibility';
 
 /**
  * Map weekday string to day of week (0 = Sunday, 6 = Saturday)
@@ -450,12 +454,15 @@ export async function generateRecurringInstances(templateTask: Task): Promise<Ta
   // Create instance for each future date
   for (const date of futureDates) {
     // Calculate visibility for this instance (Problem 5)
-    const durationDays = (templateTask as any).duration_days ?? null;
-    const visibility = calculateVisibility(date.toISOString(), durationDays, null);
+      const durationDays = (templateTask as any).duration_days ?? null;
+      const visibility = calculateVisibility(date.toISOString(), durationDays);
+      
+      const occurrenceTitle = formatOccurrenceTitle(templateTask.title, date);
     
     const instance: Task = {
       ...templateTask,
       id: Crypto.randomUUID(),
+      title: occurrenceTitle, // PROBLEM 6: Include deadline in title
       deadline: date.toISOString(),
       status: 'pending',
       pinned: false,
@@ -492,14 +499,20 @@ export function isRecurringTemplate(task: Task): boolean {
 /**
  * Find all instances belonging to a template task
  * Uses title + user_id matching to identify instances
+ * PROBLEM 6: Updated to handle titles with deadline suffixes
  */
 export function findAllInstancesFromTemplate(templateTask: Task, allTasks: Task[]): Task[] {
-  return allTasks.filter(task => 
-    task.id !== templateTask.id && // Not the template itself
-    task.user_id === templateTask.user_id &&
-    task.title === templateTask.title &&
-    !task.recurring_options // Instance has no recurring_options
-  );
+  const baseTemplateTitle = extractBaseTitle(templateTask.title);
+  
+  return allTasks.filter(task => {
+    if (task.id === templateTask.id) return false; // Not the template itself
+    if (task.user_id !== templateTask.user_id) return false;
+    if (task.recurring_options) return false; // Instance has no recurring_options
+    
+    // PROBLEM 6: Compare base titles (without deadline) to handle titles with dates
+    const baseTaskTitle = extractBaseTitle(task.title);
+    return baseTaskTitle === baseTemplateTitle;
+  });
 }
 
 /**
@@ -507,13 +520,17 @@ export function findAllInstancesFromTemplate(templateTask: Task, allTasks: Task[
  * Uses title + user_id matching and checks for recurring_options
  */
 export function findTemplateFromInstance(instance: Task, allTasks: Task[]): Task | null {
-  return allTasks.find(task => 
-    task.id !== instance.id && // Not the instance itself
-    task.user_id === instance.user_id &&
-    task.title === instance.title &&
-    task.recurring_options !== null && // Template has recurring_options
-    task.recurring_options.type !== 'none'
-  ) || null;
+  const baseInstanceTitle = extractBaseTitle(instance.title);
+  
+  return allTasks.find(task => {
+    if (task.id === instance.id) return false; // Not the instance itself
+    if (task.user_id !== instance.user_id) return false;
+    if (!task.recurring_options || task.recurring_options.type === 'none') return false;
+    
+    // PROBLEM 6: Compare base titles (without deadline) to handle titles with dates
+    const baseTaskTitle = extractBaseTitle(task.title);
+    return baseTaskTitle === baseInstanceTitle;
+  }) || null;
 }
 
 /**
@@ -552,13 +569,18 @@ export async function deleteFutureInstances(templateTask: Task): Promise<number>
   const now = new Date();
   let deletedCount = 0;
 
-  // Find all tasks with the same title and user_id that are instances (not the template)
-  // We identify instances by: same title, same user, no recurring_options, future deadline
+  // Find all tasks with the same base title and user_id that are instances (not the template)
+  // PROBLEM 6: Updated to use base title matching (handles titles with deadline)
+  // We identify instances by: same base title, same user, no recurring_options, future deadline
+  // IMPORTANT: Only delete FUTURE tasks, keep overdue tasks visible so user knows what they missed
+  const baseTemplateTitle = extractBaseTitle(templateTask.title);
+  
   for (const task of allTasks) {
+    const baseTaskTitle = extractBaseTitle(task.title);
     if (
       task.id !== templateTask.id && // Not the template itself
       task.user_id === templateTask.user_id &&
-      task.title === templateTask.title &&
+      baseTaskTitle === baseTemplateTitle && // PROBLEM 6: Compare base titles
       !task.recurring_options && // Instance (not recurring)
       task.deadline && // Has deadline
       parseISO(task.deadline) > now && // ONLY future date (overdue tasks are kept!)
@@ -603,4 +625,344 @@ export function applyRecurringConfig(task: Task, recurringOptions: RecurringOpti
     ...task,
     recurring_options: configOptions,
   };
+}
+
+/**
+ * Format occurrence title with deadline
+ * Implements Problem 6: Title must include deadline (e.g., "Weekly Report - 12/12/2025")
+ * 
+ * @param templateTitle The template task title
+ * @param deadline The deadline date for this occurrence
+ * @returns Formatted title with deadline appended
+ */
+export function formatOccurrenceTitle(templateTitle: string, deadline: Date | string): string {
+  const deadlineDate = typeof deadline === 'string' ? parseISO(deadline) : deadline;
+  
+  // Format deadline as MM/DD/YYYY
+  const deadlineStr = format(deadlineDate, 'MM/dd/yyyy');
+  
+  // Check if title already contains a date pattern (to avoid duplication)
+  const datePattern = /\d{2}\/\d{2}\/\d{4}/;
+  if (datePattern.test(templateTitle)) {
+    // If title already has a date, replace it with new date
+    return templateTitle.replace(datePattern, deadlineStr);
+  }
+  
+  // Append deadline to title: "Template Title - MM/DD/YYYY"
+  return `${templateTitle} - ${deadlineStr}`;
+}
+
+/**
+ * Extract base title from occurrence title (removes deadline suffix)
+ * Used to match occurrences with their template when title includes deadline
+ * 
+ * @param occurrenceTitle Title that may include deadline (e.g., "Weekly Report - 12/12/2025")
+ * @returns Base title without deadline (e.g., "Weekly Report")
+ */
+export function extractBaseTitle(occurrenceTitle: string): string {
+  // Remove date pattern " - MM/DD/YYYY" from the end
+  const datePattern = /\s*-\s*\d{2}\/\d{2}\/\d{4}$/;
+  return occurrenceTitle.replace(datePattern, '').trim();
+}
+
+/**
+ * Find the currently active occurrence for a template task
+ * Active = visible_from <= today <= visible_until AND status != 'done'
+ * 
+ * @param templateTask The recurring template task
+ * @param allTasks All tasks in the system
+ * @returns The active occurrence or null if none exists
+ */
+export function findActiveOccurrence(templateTask: Task, allTasks: Task[]): Task | null {
+  const instances = findAllInstancesFromTemplate(templateTask, allTasks);
+  const today = startOfDay(new Date());
+
+  for (const instance of instances) {
+    const visibleFrom = (instance as any).visible_from;
+    const visibleUntil = (instance as any).visible_until;
+    const status = instance.status;
+
+    // Check if this occurrence is currently active
+    if (status !== 'done' && isTaskVisible(visibleFrom, visibleUntil, today)) {
+      return instance;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Compute the next occurrence deadline date for a template task
+ * 
+ * @param templateTask The recurring template task
+ * @param allTasks All tasks in the system (to find last occurrence)
+ * @returns The deadline date for the next occurrence, or null if cannot compute
+ */
+export function getNextOccurrenceDate(templateTask: Task, allTasks: Task[]): Date | null {
+  const options = templateTask.recurring_options;
+  if (!options || options.type === 'none') {
+    return null;
+  }
+
+  // Find the last occurrence (by deadline) to compute next date from
+  const instances = findAllInstancesFromTemplate(templateTask, allTasks);
+  let baseDate: Date;
+
+  if (instances.length > 0) {
+    // Find the latest occurrence deadline
+    const sortedInstances = instances
+      .filter(i => i.deadline)
+      .sort((a, b) => {
+        const aDeadline = parseISO(a.deadline!);
+        const bDeadline = parseISO(b.deadline!);
+        return bDeadline.getTime() - aDeadline.getTime();
+      });
+
+    if (sortedInstances.length > 0) {
+      baseDate = parseISO(sortedInstances[0].deadline!);
+    } else {
+      // No instances with deadline, use template deadline or today
+      baseDate = templateTask.deadline ? parseISO(templateTask.deadline) : new Date();
+    }
+  } else {
+    // No instances yet, use template deadline or today
+    baseDate = templateTask.deadline ? parseISO(templateTask.deadline) : new Date();
+  }
+
+  // Preserve original time from template
+  let originalTime: { hours: number; minutes: number; seconds: number } | null = null;
+  if (templateTask.deadline) {
+    const deadlineDate = parseISO(templateTask.deadline);
+    originalTime = {
+      hours: deadlineDate.getHours(),
+      minutes: deadlineDate.getMinutes(),
+      seconds: deadlineDate.getSeconds(),
+    };
+  }
+
+  let nextDate: Date | null = null;
+
+  switch (options.type) {
+    case 'daily': {
+      nextDate = addDays(baseDate, 1);
+      break;
+    }
+
+    case 'interval': {
+      const intervalDays = options.interval_days || 1;
+      nextDate = addDays(baseDate, intervalDays);
+      break;
+    }
+
+    case 'weekly': {
+      // For weekly, find the next matching weekday
+      if (!options.weekdays || options.weekdays.length === 0) {
+        return null;
+      }
+
+      // Start from the day after baseDate
+      let currentDate = addDays(baseDate, 1);
+      const targetDayNumbers = new Set<number>();
+      for (const weekday of options.weekdays) {
+        targetDayNumbers.add(weekdayToDayOfWeek(weekday));
+      }
+
+      // Search up to 14 days ahead (2 weeks max)
+      for (let i = 0; i < 14; i++) {
+        const dayOfWeek = getDay(currentDate);
+        if (targetDayNumbers.has(dayOfWeek)) {
+          nextDate = new Date(currentDate);
+          break;
+        }
+        currentDate = addDays(currentDate, 1);
+      }
+      break;
+    }
+
+    case 'monthly_date': {
+      if (!options.dayOfMonth) {
+        return null;
+      }
+      const nextMonth = addMonths(baseDate, 1);
+      const targetDay = Math.min(options.dayOfMonth, getDate(endOfMonth(nextMonth)));
+      nextDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), targetDay);
+      break;
+    }
+
+    case 'monthly_weekday': {
+      if (!options.weekdays || options.weekdays.length === 0 || options.weekNumber === undefined) {
+        return null;
+      }
+      const weekday = options.weekdays[0];
+      const nextMonth = addMonths(baseDate, 1);
+
+      // Search up to 12 months ahead for valid date
+      let candidate: Date | null = null;
+      let currentMonth = nextMonth;
+      for (let i = 0; i < 12; i++) {
+        candidate = getNthWeekdayInMonth(
+          currentMonth.getFullYear(),
+          currentMonth.getMonth(),
+          weekday,
+          options.weekNumber
+        );
+
+        if (candidate && isAfter(candidate, baseDate)) {
+          nextDate = candidate;
+          break;
+        }
+
+        currentMonth = addMonths(currentMonth, 1);
+        candidate = null;
+      }
+      break;
+    }
+
+    default:
+      return null;
+  }
+
+  // Restore original time if it existed
+  if (originalTime && nextDate) {
+    nextDate = setHours(nextDate, originalTime.hours);
+    nextDate = setMinutes(nextDate, originalTime.minutes);
+    nextDate = setSeconds(nextDate, originalTime.seconds);
+  }
+
+  return nextDate;
+}
+
+/**
+ * Close a previous occurrence by setting its visible_until to the day before the new occurrence starts
+ * 
+ * @param previousInstance The occurrence to close
+ * @param newVisibleFrom The visible_from date of the new occurrence (ISO string)
+ * @returns Promise that resolves when the occurrence is closed
+ */
+export async function closePreviousOccurrence(
+  previousInstance: Task,
+  newVisibleFrom: string | null
+): Promise<void> {
+  if (!newVisibleFrom) {
+    console.warn('[Recurring] Cannot close previous occurrence: new visible_from is null');
+    return;
+  }
+
+  try {
+    const newVisibleFromDate = parseISO(newVisibleFrom);
+    const previousVisibleUntil = subDays(startOfDay(newVisibleFromDate), 1);
+    const previousVisibleUntilISO = formatISO(previousVisibleUntil, { representation: 'date' });
+
+    // Update the previous instance's visible_until
+    const updatedInstance = {
+      ...previousInstance,
+      visible_until: previousVisibleUntilISO,
+      updated_at: new Date().toISOString(),
+    } as Task;
+
+    await upsertTaskToCache(updatedInstance);
+    console.log(`[Recurring] Closed previous occurrence ${previousInstance.id}: visible_until = ${previousVisibleUntilISO}`);
+  } catch (error) {
+    console.error('[Recurring] Error closing previous occurrence:', error);
+    throw error;
+  }
+}
+
+/**
+ * Ensure that a template task has an active occurrence
+ * Creates a new occurrence if needed, and closes the previous one if it's ending
+ * 
+ * Implements Problem 2: Only ONE active occurrence at a time
+ * 
+ * @param templateTask The recurring template task
+ * @param allTasks All tasks in the system
+ * @returns The active occurrence, or null if none should exist
+ */
+export async function ensureActiveOccurrence(
+  templateTask: Task,
+  allTasks: Task[]
+): Promise<Task | null> {
+  const options = templateTask.recurring_options;
+  if (!options || options.type === 'none') {
+    return null;
+  }
+
+  const today = startOfDay(new Date());
+  const activeOccurrence = findActiveOccurrence(templateTask, allTasks);
+
+  // Check if active occurrence is ending or has ended
+  let shouldCreateNew = false;
+  let shouldClosePrevious = false;
+
+  if (activeOccurrence) {
+    const visibleUntil = (activeOccurrence as any).visible_until;
+    if (visibleUntil) {
+      const visibleUntilDate = startOfDay(parseISO(visibleUntil));
+      
+      // If visible_until is today or in the past, we need a new occurrence
+      if (visibleUntilDate < today || isEqual(visibleUntilDate, today)) {
+        shouldCreateNew = true;
+        shouldClosePrevious = true;
+      }
+    } else {
+      // No visible_until - this shouldn't happen, but if it does, create new
+      shouldCreateNew = true;
+      shouldClosePrevious = true;
+    }
+  } else {
+    // No active occurrence, create one
+    shouldCreateNew = true;
+  }
+
+  if (!shouldCreateNew) {
+    // Active occurrence is still valid, return it
+    return activeOccurrence;
+  }
+
+  // Get the next occurrence date
+  const nextDeadline = getNextOccurrenceDate(templateTask, allTasks);
+  if (!nextDeadline) {
+    console.warn('[Recurring] Cannot compute next occurrence date for template:', templateTask.id);
+    return activeOccurrence; // Return existing one if any
+  }
+
+  // Calculate visibility for the new occurrence
+  const durationDays = (templateTask as any).duration_days ?? null;
+  const visibility = calculateVisibility(nextDeadline.toISOString(), durationDays);
+
+  if (!visibility.visible_from) {
+    console.warn('[Recurring] Cannot compute visible_from for new occurrence');
+    return activeOccurrence;
+  }
+
+  // Close previous occurrence if needed (before creating new one to avoid overlap)
+  if (shouldClosePrevious && activeOccurrence) {
+    await closePreviousOccurrence(activeOccurrence, visibility.visible_from);
+  }
+
+  // Create the new occurrence
+  const now = new Date().toISOString();
+  const occurrenceTitle = formatOccurrenceTitle(templateTask.title, nextDeadline); // PROBLEM 6: Include deadline in title
+  
+  const newInstance: Task = {
+    ...templateTask,
+    id: Crypto.randomUUID(),
+    title: occurrenceTitle, // PROBLEM 6: Include deadline in title
+    deadline: nextDeadline.toISOString(),
+    status: 'pending',
+    pinned: false,
+    created_at: now,
+    updated_at: now,
+    recurring_options: null, // Instances don't have recurring options
+    is_completed: false,
+    duration_days: durationDays,
+    visible_from: visibility.visible_from,
+    visible_until: visibility.visible_until,
+  } as Task;
+
+  // Save to database
+  await upsertTaskToCache(newInstance);
+  console.log(`[Recurring] Created new active occurrence ${newInstance.id} for template ${templateTask.id}: deadline=${nextDeadline.toISOString()}, visible_from=${visibility.visible_from}`);
+
+  return newInstance;
 }

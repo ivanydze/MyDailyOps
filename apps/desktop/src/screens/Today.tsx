@@ -5,10 +5,13 @@ import TaskCard from "../components/TaskCard";
 import { isPast, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import { isVisibleToday } from "../utils/visibility";
+import { shouldShowTaskOnWeekend } from "../utils/weekend";
+import { useSettingsStore } from "../stores/settingsStore";
 
 export default function Today() {
   const navigate = useNavigate();
   const { tasks, isLoading, error, fetchTasks, updateTask, deleteTask } = useTaskStore();
+  const weekendFilter = useSettingsStore((state) => state.weekendFilter);
 
   useEffect(() => {
     // Fetch tasks on mount
@@ -28,6 +31,7 @@ export default function Today() {
 
   // Filter tasks for today using visibility engine (Problem 5)
   // Uses visible_from and visible_until fields for proper duration-based filtering
+  // Also applies weekend filtering (Problem 8)
   const todayTasks = tasks.filter((task) => {
     // Hide completed tasks
     if (task.status === "done") return false;
@@ -36,16 +40,24 @@ export default function Today() {
     const visibleFrom = (task as any).visible_from;
     const visibleUntil = (task as any).visible_until;
     
+    let isVisible = false;
     if (visibleFrom || visibleUntil) {
       // Task has visibility range - check if today is within range
-      return isVisibleToday(visibleFrom, visibleUntil);
+      isVisible = isVisibleToday(visibleFrom, visibleUntil);
+    } else {
+      // Fallback: legacy behavior for tasks without visibility fields
+      // Only show tasks with deadline that are today or overdue
+      if (!task.deadline) return false;
+      const deadline = parseISO(task.deadline);
+      isVisible = isPast(deadline) || deadline.toDateString() === new Date().toDateString();
     }
 
-    // Fallback: legacy behavior for tasks without visibility fields
-    // Only show tasks with deadline that are today or overdue
-    if (!task.deadline) return false;
-    const deadline = parseISO(task.deadline);
-    return isPast(deadline) || deadline.toDateString() === new Date().toDateString();
+    // If not visible today, exclude
+    if (!isVisible) return false;
+
+    // Problem 8: Apply weekend filtering
+    // Calendar & Upcoming ignore this filter, but Today view applies it
+    return shouldShowTaskOnWeekend(task, weekendFilter);
   });
 
   // Sort: overdue first, then by priority (high > medium > low), then by deadline

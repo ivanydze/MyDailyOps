@@ -3,8 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useTaskStore } from "../stores/taskStore";
 import toast from "react-hot-toast";
 import type { TaskPriority, TaskStatus, RecurringOptions } from "@mydailyops/core";
-import { Save, X, Loader2, Calendar, XCircle } from "lucide-react";
+import { Save, X, Loader2, Calendar, XCircle, Clock } from "lucide-react";
 import DatePicker from "react-datepicker";
+import { getCurrentTimezone, getCommonTimezones } from "../utils/timezone";
+import type { TimezoneOption } from "../utils/timezone";
 
 export default function EditTask() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +23,11 @@ export default function EditTask() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Timezone-safe time fields (Problem 17)
+  const [eventTime, setEventTime] = useState<string>("");
+  const [eventTimezone, setEventTimezone] = useState<string>("");
+  const [timezoneOptions, setTimezoneOptions] = useState<TimezoneOption[]>([]);
 
   // Recurring options state
   const [isRecurring, setIsRecurring] = useState(false);
@@ -58,6 +65,12 @@ export default function EditTask() {
     { value: -1, label: 'Last' },
   ];
 
+  // Initialize timezone options
+  useEffect(() => {
+    const options = getCommonTimezones();
+    setTimezoneOptions(options);
+  }, []);
+
   useEffect(() => {
     const loadTask = async () => {
       if (!id) {
@@ -84,6 +97,10 @@ export default function EditTask() {
       setDeadline(task.deadline ? new Date(task.deadline) : null);
       setStatus(task.status);
       setPinned(task.pinned || false);
+      
+      // Load timezone-safe time fields (Problem 17)
+      setEventTime((task as any).event_time || "");
+      setEventTimezone((task as any).event_timezone || getCurrentTimezone());
 
       // Load recurring options
       if (task.recurring_options) {
@@ -214,7 +231,9 @@ export default function EditTask() {
         status,
         pinned,
         recurring_options: recurringOptions,
-      });
+        event_time: eventTime.trim() || undefined,
+        event_timezone: eventTimezone || undefined,
+      } as any);
 
       toast.success("Task updated successfully!");
       navigate("/tasks");
@@ -385,10 +404,68 @@ export default function EditTask() {
           </div>
         </div>
 
+        {/* Timezone-Safe Event Time (Problem 17) */}
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock size={18} className="text-gray-600 dark:text-gray-400" />
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Event Time (Timezone-Safe)
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Set a specific time that won't change when you travel. The time is stored in the selected timezone.
+          </p>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="eventTime"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Time
+              </label>
+              <input
+                id="eventTime"
+                type="time"
+                value={eventTime}
+                onChange={(e) => setEventTime(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            
+            <div>
+              <label
+                htmlFor="eventTimezone"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Timezone
+              </label>
+              <select
+                id="eventTimezone"
+                value={eventTimezone}
+                onChange={(e) => setEventTimezone(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                {timezoneOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} ({option.abbreviation})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          {eventTime && eventTimezone && (
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+              Event time: {eventTime} ({timezoneOptions.find(tz => tz.value === eventTimezone)?.abbreviation || eventTimezone})
+            </p>
+          )}
+        </div>
+
         {/* Deadline with Date Picker */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Deadline
+            Deadline (Date Only)
           </label>
           <div className="relative">
             <button

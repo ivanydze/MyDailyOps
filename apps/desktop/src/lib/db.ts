@@ -8,7 +8,7 @@ import type { Task } from "@mydailyops/core";
 
 let db: Database | null = null;
 
-async function getDb(): Promise<Database | null> {
+export async function getDb(): Promise<Database | null> {
   // Check if we're running in Tauri (window.__TAURI_INTERNALS__ exists)
   // If not, return null to indicate browser mode
   if (typeof window !== 'undefined' && !(window as any).__TAURI_INTERNALS__) {
@@ -71,6 +71,11 @@ export async function initDatabase(): Promise<void> {
         start_date TEXT,
         visible_from TEXT,
         visible_until TEXT,
+        -- Soft delete field (Problem 13: Delete All Tasks)
+        deleted_at TEXT,
+        -- Timezone-safe time fields (Problem 17: Timezone-Safe Task Time)
+        event_time TEXT,
+        event_timezone TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -79,6 +84,7 @@ export async function initDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
       CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline);
       CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
+      CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at ON tasks(deleted_at);
 
       CREATE TABLE IF NOT EXISTS categories (
         id TEXT PRIMARY KEY,
@@ -90,11 +96,49 @@ export async function initDatabase(): Promise<void> {
       );
 
       CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
+
+      -- Weekly Checklists table (Problem 10)
+      CREATE TABLE IF NOT EXISTS weekly_checklists (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        week_start_date TEXT NOT NULL,
+        week_end_date TEXT NOT NULL,
+        title TEXT,
+        items TEXT NOT NULL DEFAULT '[]',  -- JSON string
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(user_id, week_start_date)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_weekly_checklists_user_week 
+        ON weekly_checklists(user_id, week_start_date);
+      CREATE INDEX IF NOT EXISTS idx_weekly_checklists_user_week_desc 
+        ON weekly_checklists(user_id, week_start_date DESC);
+
+      -- Travel Events table (Problem 16: Travel Events)
+      CREATE TABLE IF NOT EXISTS travel_events (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        start_date TEXT NOT NULL,  -- ISO date (YYYY-MM-DD)
+        end_date TEXT NOT NULL,    -- ISO date (YYYY-MM-DD)
+        color TEXT DEFAULT '#3B82F6',
+        location TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (end_date >= start_date)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_travel_events_user_id ON travel_events(user_id);
+      CREATE INDEX IF NOT EXISTS idx_travel_events_dates ON travel_events(start_date, end_date);
+      CREATE INDEX IF NOT EXISTS idx_travel_events_user_dates ON travel_events(user_id, start_date, end_date);
     `);
 
     // Migrate existing tables to add missing columns
     await migrateRecurringFields();
     await migrateVisibilityFields();
+    await migrateDeletedAtField();
+    await migrateEventTimeFields();
 
     console.log('[Database] Initialized with Supabase-matching schema');
   } catch (error) {
@@ -165,6 +209,63 @@ async function migrateVisibilityFields(): Promise<void> {
 }
 
 /**
+ * Migrate existing tables to add deleted_at field if missing (Problem 13)
+ */
+async function migrateDeletedAtField(): Promise<void> {
+  const migrationDb = await getDb();
+  if (!migrationDb) {
+    console.warn('[DB] Database not available for deleted_at migration');
+    return;
+  }
+
+  try {
+    await migrationDb.execute(`ALTER TABLE tasks ADD COLUMN deleted_at TEXT`);
+    console.log('[Database] ✅ Added deleted_at column');
+  } catch (error: any) {
+    // Column might already exist, ignore
+    if (!error?.message?.includes('duplicate column')) {
+      console.warn(`[Database] Could not add deleted_at column:`, error);
+    }
+  }
+
+  // Create index if it doesn't exist
+  try {
+    await migrationDb.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at ON tasks(deleted_at)`);
+  } catch (error: any) {
+    console.warn(`[Database] Could not create deleted_at index:`, error);
+  }
+}
+
+/**
+ * Migrate existing tables to add event_time and event_timezone fields if missing (Problem 17)
+ */
+async function migrateEventTimeFields(): Promise<void> {
+  const migrationDb = await getDb();
+  if (!migrationDb) {
+    console.warn('[DB] Database not available for event_time migration');
+    return;
+  }
+
+  try {
+    await migrationDb.execute(`ALTER TABLE tasks ADD COLUMN event_time TEXT`);
+    console.log('[Database] ✅ Added event_time column');
+  } catch (error: any) {
+    if (!error?.message?.includes('duplicate column') && !error?.message?.includes('already exists')) {
+      console.warn('[Database] Could not add event_time column:', error);
+    }
+  }
+
+  try {
+    await migrationDb.execute(`ALTER TABLE tasks ADD COLUMN event_timezone TEXT`);
+    console.log('[Database] ✅ Added event_timezone column');
+  } catch (error: any) {
+    if (!error?.message?.includes('duplicate column') && !error?.message?.includes('already exists')) {
+      console.warn('[Database] Could not add event_timezone column:', error);
+    }
+  }
+}
+
+/**
  * Load all tasks from cache for current user
  * Matches mobile app's loadTasksFromCache exactly
  */
@@ -175,8 +276,9 @@ export async function loadTasksFromCache(userId: string): Promise<Task[]> {
       console.warn('[DB] Database not available, returning empty array');
       return [];
     }
+    // Filter out soft-deleted tasks (Problem 13)
     const result = await database.select(
-      "SELECT * FROM tasks WHERE user_id = ? ORDER BY updated_at DESC",
+      "SELECT * FROM tasks WHERE user_id = ? AND (deleted_at IS NULL OR deleted_at = '') ORDER BY updated_at DESC",
       [userId]
     ) as any[];
 
@@ -219,6 +321,11 @@ export async function loadTasksFromCache(userId: string): Promise<Task[]> {
         start_date: row.start_date ?? null,
         visible_from: row.visible_from ?? null,
         visible_until: row.visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: row.deleted_at ?? null,
+        // Timezone-safe time fields (Problem 17)
+        event_time: row.event_time ?? null,
+        event_timezone: row.event_timezone ?? null,
       } as Task;
     });
   } catch (error) {
@@ -273,6 +380,11 @@ export async function upsertTaskToCache(task: Task): Promise<void> {
     const startDate = (task as any).start_date ?? null;
     const visibleFrom = (task as any).visible_from ?? null;
     const visibleUntil = (task as any).visible_until ?? null;
+    // Extract soft delete field (Problem 13)
+    const deletedAt = (task as any).deleted_at ?? null;
+    // Extract timezone-safe time fields (Problem 17)
+    const eventTime = (task as any).event_time ?? null;
+    const eventTimezone = (task as any).event_timezone ?? null;
 
     await database.execute(
       `INSERT INTO tasks (
@@ -280,8 +392,9 @@ export async function upsertTaskToCache(task: Task): Promise<void> {
         created_at, updated_at,
         recurring, recurring_type, recurring_interval_days, recurring_weekday, 
         recurring_day_of_month, last_generated_at, recurring_options,
-        duration_days, start_date, visible_from, visible_until
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        duration_days, start_date, visible_from, visible_until, deleted_at,
+        event_time, event_timezone
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         description = excluded.description,
@@ -301,7 +414,10 @@ export async function upsertTaskToCache(task: Task): Promise<void> {
         duration_days = excluded.duration_days,
         start_date = excluded.start_date,
         visible_from = excluded.visible_from,
-        visible_until = excluded.visible_until`,
+        visible_until = excluded.visible_until,
+        deleted_at = excluded.deleted_at,
+        event_time = excluded.event_time,
+        event_timezone = excluded.event_timezone`,
       [
         task.id,
         task.user_id,
@@ -325,6 +441,9 @@ export async function upsertTaskToCache(task: Task): Promise<void> {
         startDate,
         visibleFrom,
         visibleUntil,
+        deletedAt,
+        eventTime,
+        eventTimezone,
       ]
     );
   } catch (error) {
@@ -381,7 +500,10 @@ export async function getTaskById(id: string, userId: string): Promise<Task | nu
       updated_at: row.updated_at,
       recurring_options: recurringOptions,
       is_completed: isCompleted,
-    };
+      // Timezone-safe time fields (Problem 17)
+      event_time: row.event_time ?? null,
+      event_timezone: row.event_timezone ?? null,
+    } as any as Task;
   } catch (error) {
     console.error('[Database] Error getting task:', error);
     throw error;

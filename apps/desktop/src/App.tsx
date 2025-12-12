@@ -5,15 +5,21 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoginScreen from "./screens/LoginScreen";
 import Today from "./screens/Today";
+import Upcoming from "./screens/Upcoming";
 import AllTasks from "./screens/AllTasks";
 import NewTask from "./screens/NewTask";
 import EditTask from "./screens/EditTask";
+import NewTravelEvent from "./screens/NewTravelEvent";
+import EditTravelEvent from "./screens/EditTravelEvent";
 import CalendarDay from "./screens/CalendarDay";
 import CalendarWeek from "./screens/CalendarWeek";
 import CalendarMonth from "./screens/CalendarMonth";
 import CalendarYear from "./screens/CalendarYear";
 import Calendar from "./screens/Calendar";
-import { init as initSync } from "./services/syncService";
+import Settings from "./screens/Settings";
+import WeeklyChecklist from "./screens/WeeklyChecklist";
+import Trash from "./screens/Trash";
+import { init as initSync, startAutoPolling, stopAutoPolling, setOnlineStatus } from "./services/syncService";
 import { supabase, restoreSession, getCurrentUserId } from "./lib/supabaseClient";
 import { useTaskStore } from "./stores/taskStore";
 
@@ -57,6 +63,21 @@ function App() {
         // Initialize sync service
         await initSync();
         
+        // Problem 13: Auto-purge old deleted tasks (30+ days old)
+        try {
+          const { autoPurgeTrash } = await import('./lib/dbTrash');
+          const userId = await getCurrentUserId();
+          if (userId) {
+            const purgedCount = await autoPurgeTrash(userId, 30);
+            if (purgedCount > 0) {
+              console.log(`[App] Auto-purged ${purgedCount} old tasks from Trash`);
+            }
+          }
+        } catch (error) {
+          console.error('[App] Error during auto-purge:', error);
+          // Don't block app startup on purge error
+        }
+        
         // Sync tasks and update store
         console.log('[App] Syncing tasks...');
         await syncTasks();
@@ -81,12 +102,16 @@ function App() {
           )
           .subscribe();
 
+        // Problem 18: Start auto-polling as fallback (every 45 seconds)
+        startAutoPolling(syncTasks, 45000);
+
         setIsInitialized(true);
 
         // Cleanup on unmount
         return () => {
-          console.log('[App] Cleaning up real-time listener');
+          console.log('[App] Cleaning up real-time listener and auto-polling');
           supabase.removeChannel(tasksChannel);
+          stopAutoPolling();
         };
       } catch (error) {
         console.error('[App] Error initializing:', error);
@@ -95,6 +120,37 @@ function App() {
     };
 
     initialize();
+
+    // Problem 18: Set up online/offline event listeners
+    const handleOnline = () => {
+      console.log('[App] Device came online');
+      setOnlineStatus(true);
+      // Auto-sync when coming back online
+      syncTasks().catch((error) => {
+        console.error('[App] Error syncing after coming online:', error);
+      });
+    };
+
+    const handleOffline = () => {
+      console.log('[App] Device went offline');
+      setOnlineStatus(false);
+    };
+
+    // Problem 18: Set up window focus listener for refresh
+    const handleFocus = () => {
+      console.log('[App] Window gained focus, syncing...');
+      syncTasks().catch((error) => {
+        console.error('[App] Error syncing on focus:', error);
+      });
+    };
+
+    // Initialize online status
+    setOnlineStatus(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+    // Add event listeners
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', handleFocus);
 
     // Listen for auth state changes
     const {
@@ -105,6 +161,9 @@ function App() {
 
     return () => {
       subscription.unsubscribe();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [syncTasks]);
 
@@ -148,14 +207,20 @@ function App() {
               >
                 <Route path="/" element={<Today />} />
                 <Route path="/today" element={<Today />} />
+                <Route path="/upcoming" element={<Upcoming />} />
                 <Route path="/tasks" element={<AllTasks />} />
                 <Route path="/tasks/new" element={<NewTask />} />
                 <Route path="/tasks/:id/edit" element={<EditTask />} />
+                <Route path="/travel-events/new" element={<NewTravelEvent />} />
+                <Route path="/travel-events/:id/edit" element={<EditTravelEvent />} />
                 <Route path="/calendar" element={<Calendar />} />
                 <Route path="/calendar/day" element={<CalendarDay />} />
                 <Route path="/calendar/week" element={<CalendarWeek />} />
                 <Route path="/calendar/month" element={<CalendarMonth />} />
                 <Route path="/calendar/year" element={<CalendarYear />} />
+                <Route path="/weekly-checklist" element={<WeeklyChecklist />} />
+                <Route path="/trash" element={<Trash />} />
+                <Route path="/settings" element={<Settings />} />
               </Route>
             </Route>
           </Routes>

@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import type { Task } from "@mydailyops/core";
 import * as db from "../lib/db";
+import * as dbTrash from "../lib/dbTrash";
 import { getCurrentUserId, supabase } from "../lib/supabaseClient";
 import { pushTaskToSupabase, pushTasksToSupabaseBatch, deleteTaskFromSupabase, syncNow } from "../services/syncService";
 import { 
-  generateRecurringInstances, 
   deleteFutureInstances, 
   applyRecurringConfig,
   isRecurringTemplate,
   findAllInstancesFromTemplate,
+  ensureActiveOccurrence,
 } from "../utils/recurring";
 import { calculateVisibility } from "../utils/visibility";
 
@@ -20,6 +21,12 @@ interface TaskState {
   addTask: (task: Omit<Task, "id" | "user_id" | "created_at" | "updated_at">) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  // Soft delete functions (Problem 13)
+  softDeleteTask: (id: string) => Promise<void>;
+  softDeleteAllTasks: () => Promise<number>;
+  restoreTask: (id: string) => Promise<void>;
+  hardDeleteTask: (id: string) => Promise<void>;
+  emptyTrash: () => Promise<number>;
   sync: () => Promise<void>;
 }
 
@@ -43,10 +50,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       // If cache is empty (browser mode or no local data), fetch from Supabase
       if (tasks.length === 0) {
         console.log('[TaskStore] Cache empty, fetching from Supabase...');
+        // Filter out soft-deleted tasks (Problem 13)
         const { data, error } = await supabase
           .from('tasks')
           .select('*')
           .eq('user_id', userId)
+          .is('deleted_at', null)
           .order('updated_at', { ascending: false });
           
         if (error) throw error;
@@ -71,7 +80,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           start_date: row.start_date ?? null,
           visible_from: row.visible_from ?? null,
           visible_until: row.visible_until ?? null,
+          deleted_at: row.deleted_at ?? null,
         } as Task));
+      }
+      
+      // PROBLEM 2: Ensure active occurrences for all recurring templates
+      // Check and create active occurrences if needed (prevents overlap)
+      const templates = tasks.filter(t => isRecurringTemplate(t));
+      for (const template of templates) {
+        try {
+          await ensureActiveOccurrence(template, tasks);
+          // Reload tasks to get newly created occurrences
+          tasks = await db.loadTasksFromCache(userId);
+        } catch (error) {
+          console.error(`[TaskStore] Error ensuring active occurrence for template ${template.id}:`, error);
+        }
       }
       
       console.log('[TaskStore] Loaded', tasks.length, 'tasks');
@@ -112,41 +135,38 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           start_date: startDate,
           visible_from: visibility.visible_from,
           visible_until: visibility.visible_until,
-        },
+        } as any,
         task.recurring_options || null
       );
 
       // Write template task to SQLite first (offline-first)
       await db.upsertTaskToCache(taskWithConfig);
       
-      // Generate recurring instances if this is a recurring task
+      // PROBLEM 2: For recurring tasks, ensure active occurrence instead of pre-generating all
       if (taskWithConfig.recurring_options && taskWithConfig.recurring_options.type !== 'none') {
-        console.log('[TaskStore] Generating recurring instances for task:', taskWithConfig.id);
-        const instances = await generateRecurringInstances(taskWithConfig);
-        console.log('[TaskStore] Generated', instances.length, 'instances');
+        console.log('[TaskStore] Ensuring active occurrence for recurring task:', taskWithConfig.id);
+        
+        // Load current tasks to check for existing occurrences
+        const currentTasks = await db.loadTasksFromCache(userId);
+        const activeOccurrence = await ensureActiveOccurrence(taskWithConfig, currentTasks);
+        
+        // Prepare tasks to push (template + active occurrence if created)
+        const tasksToPush = [taskWithConfig];
+        if (activeOccurrence) {
+          tasksToPush.push(activeOccurrence);
+        }
         
         try {
-          // Push template + all instances to Supabase in batch (more efficient)
-          const allTasksToPush = [taskWithConfig, ...instances];
-          await pushTasksToSupabaseBatch(allTasksToPush);
-          console.log('[TaskStore] Template + all instances pushed to Supabase successfully');
+          // Push template + active occurrence to Supabase in batch
+          await pushTasksToSupabaseBatch(tasksToPush);
+          console.log('[TaskStore] Template + active occurrence pushed to Supabase successfully');
         } catch (error) {
           console.error('[TaskStore] Error pushing tasks to Supabase:', error);
           // Continue anyway - tasks are in local state
         }
         
-        // Update local state with template + all instances immediately for instant UI feedback
-        set((state) => ({ tasks: [...state.tasks, taskWithConfig, ...instances] }));
-        
-        // Refresh from Supabase after a delay to get all tasks (including instances that were just pushed)
-        // This ensures Supabase has processed all batch inserts
-        const userIdForRefresh = await getCurrentUserId();
-        if (userIdForRefresh) {
-          setTimeout(async () => {
-            console.log('[TaskStore] Refreshing tasks from Supabase after batch push');
-            await get().fetchTasks();
-          }, 2000);
-        }
+        // Update local state with template + active occurrence immediately for instant UI feedback
+        set((state) => ({ tasks: [...state.tasks, taskWithConfig, ...(activeOccurrence ? [activeOccurrence] : [])] }));
       } else {
         // Push to Supabase in background (fire and forget)
         pushTaskToSupabase(taskWithConfig).catch((error) => {
@@ -182,6 +202,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         throw new Error("Task not found in local state");
       }
 
+      // PROBLEM 9: Prevent completing recurring templates
+      // Only occurrences can be completed, templates cannot
+      if (updates.status === 'done' && isRecurringTemplate(currentTask)) {
+        throw new Error("Cannot complete recurring template. Only occurrences can be completed.");
+      }
+
       // Apply recurring config with defaults if recurring
       const taskWithUpdates = {
         ...currentTask,
@@ -210,7 +236,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       const isRecurring = updatedTask.recurring_options && updatedTask.recurring_options.type !== 'none';
       
       if (isRecurring) {
-        // Delete all future instances before updating template
+        // PROBLEM 2: Delete all future instances (they will be recreated on-demand)
         console.log('[TaskStore] Deleting future instances for recurring task');
         await deleteFutureInstances(updatedTask);
       }
@@ -218,35 +244,33 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       // Update template task in SQLite first (offline-first)
       await db.upsertTaskToCache(updatedTask);
       
-      // Regenerate future instances if recurring
+      // PROBLEM 2: For recurring tasks, ensure active occurrence instead of pre-generating all
       if (isRecurring) {
-        console.log('[TaskStore] Regenerating recurring instances for task:', updatedTask.id);
-        const instances = await generateRecurringInstances(updatedTask);
-        console.log('[TaskStore] Generated', instances.length, 'instances');
+        console.log('[TaskStore] Ensuring active occurrence for updated recurring task');
+        
+        // Load current tasks to check for existing occurrences
+        const currentTasks = await db.loadTasksFromCache(userId);
+        const activeOccurrence = await ensureActiveOccurrence(updatedTask, currentTasks);
+        
+        // Prepare tasks to push (template + active occurrence if created)
+        const tasksToPush = [updatedTask];
+        if (activeOccurrence) {
+          tasksToPush.push(activeOccurrence as any);
+        }
         
         try {
-          // Push template + all instances to Supabase in batch
-          const allTasksToPush = [updatedTask, ...instances];
-          await pushTasksToSupabaseBatch(allTasksToPush);
-          console.log('[TaskStore] Template + all instances pushed to Supabase successfully');
+          // Push template + active occurrence to Supabase in batch
+          await pushTasksToSupabaseBatch(tasksToPush);
+          console.log('[TaskStore] Template + active occurrence pushed to Supabase successfully');
         } catch (error) {
           console.error('[TaskStore] Error pushing tasks to Supabase:', error);
           // Continue anyway
         }
         
-        // Refresh from cache/ Supabase to get all tasks (template + instances)
-        const userId = await getCurrentUserId();
-        if (userId) {
-          // Try to load from cache first
-          const cachedTasks = await db.loadTasksFromCache(userId);
-          if (cachedTasks.length > 0) {
-            set({ tasks: cachedTasks });
-          } else {
-            // If cache is empty (browser mode), fetch from Supabase after a delay
-            setTimeout(async () => {
-              await get().fetchTasks();
-            }, 1000);
-          }
+        // Refresh from cache to get all tasks (template + instances)
+        const cachedTasks = await db.loadTasksFromCache(userId);
+        if (cachedTasks.length > 0) {
+          set({ tasks: cachedTasks });
         }
       } else {
         // Push to Supabase in background
@@ -358,6 +382,124 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       } catch (cacheError) {
         console.error('[TaskStore] Error loading from cache:', cacheError);
       }
+    }
+  },
+
+  // Soft delete functions (Problem 13)
+  softDeleteTask: async (id) => {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+
+      // Soft delete in cache
+      await dbTrash.softDeleteTask(id, userId);
+
+      // Update local state - remove from tasks array
+      set((state) => ({
+        tasks: state.tasks.filter((t) => t.id !== id),
+      }));
+
+      // Sync to Supabase
+      await syncNow();
+    } catch (error) {
+      console.error('[TaskStore] Error soft deleting task:', error);
+      throw error;
+    }
+  },
+
+  softDeleteAllTasks: async () => {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+
+      // Soft delete all in cache
+      const count = await dbTrash.softDeleteAllTasks(userId);
+
+      // Clear local state
+      set({ tasks: [] });
+
+      // Sync to Supabase
+      await syncNow();
+
+      return count;
+    } catch (error) {
+      console.error('[TaskStore] Error soft deleting all tasks:', error);
+      throw error;
+    }
+  },
+
+  restoreTask: async (id) => {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+
+      // Restore in cache
+      await dbTrash.restoreTask(id, userId);
+
+      // Reload tasks to include restored task
+      const tasks = await db.loadTasksFromCache(userId);
+      set({ tasks });
+
+      // Sync to Supabase
+      await syncNow();
+    } catch (error) {
+      console.error('[TaskStore] Error restoring task:', error);
+      throw error;
+    }
+  },
+
+  hardDeleteTask: async (id) => {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+
+      // Hard delete from cache
+      await dbTrash.hardDeleteTask(id, userId);
+
+      // Hard delete from Supabase (permanent deletion)
+      await deleteTaskFromSupabase(id, userId);
+    } catch (error) {
+      console.error('[TaskStore] Error hard deleting task:', error);
+      throw error;
+    }
+  },
+
+  emptyTrash: async () => {
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+
+      // Get all trash task IDs before deleting
+      const trashTasks = await dbTrash.loadTrashFromCache(userId);
+      const trashTaskIds = trashTasks.map(t => t.id);
+
+      // Hard delete all from cache
+      const count = await dbTrash.emptyTrash(userId);
+
+      // Hard delete all from Supabase
+      for (const taskId of trashTaskIds) {
+        try {
+          await deleteTaskFromSupabase(taskId, userId);
+        } catch (error) {
+          console.warn(`[TaskStore] Failed to delete task ${taskId} from Supabase:`, error);
+          // Continue deleting other tasks even if one fails
+        }
+      }
+
+      return count;
+    } catch (error) {
+      console.error('[TaskStore] Error emptying trash:', error);
+      throw error;
     }
   },
 }));

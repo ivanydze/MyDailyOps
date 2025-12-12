@@ -21,7 +21,8 @@ export default function CalendarYearScreen() {
     ? new Date(dateParam)
     : new Date();
 
-  const [selectedYear, setSelectedYear] = useState(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedYear, _setSelectedYear] = useState(
     getYear(initialDate)
   );
 

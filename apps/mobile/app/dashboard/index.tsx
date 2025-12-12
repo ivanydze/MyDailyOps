@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { Text, Surface, useTheme, IconButton, ProgressBar, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useDashboard, getTimeUntil, getDayLabel } from '../../hooks/useDashboard';
 import { Task } from '../../types/task';
 import { getTransparentBackground } from '../../lib/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import { autoPurgeTrash } from '../../database/dbTrash';
+import UserProfile from '../../components/UserProfile';
 
 /**
  * Motion/Notion Hybrid Dashboard
@@ -14,6 +17,28 @@ export default function DashboardScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { today, overdue, upcoming, weekly, categories, loading, syncing, refresh } = useDashboard();
+  const { userId } = useAuth();
+  const hasAutoPurgedRef = useRef(false);
+
+  // Problem 13: Auto-purge old deleted tasks on first mount (30+ days old)
+  useEffect(() => {
+    if (!userId || hasAutoPurgedRef.current) return;
+
+    const runAutoPurge = async () => {
+      try {
+        hasAutoPurgedRef.current = true;
+        const purgedCount = await autoPurgeTrash(userId, 30);
+        if (purgedCount > 0) {
+          console.log(`[Dashboard] Auto-purged ${purgedCount} old tasks from Trash`);
+        }
+      } catch (error) {
+        console.error('[Dashboard] Error during auto-purge:', error);
+        // Don't block app on purge error
+      }
+    };
+
+    runAutoPurge();
+  }, [userId]);
 
   const priorityColors = {
     high: '#ef4444',
@@ -58,8 +83,11 @@ export default function DashboardScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
+          <IconButton icon="calendar" onPress={() => router.push('/calendar')} />
+          <IconButton icon="format-list-checks" onPress={() => router.push('/weekly-checklist')} />
           <IconButton icon="refresh" onPress={refresh} loading={syncing} />
           <IconButton icon="cog" onPress={() => router.push('/settings')} />
+          <UserProfile size="md" showName={false} />
         </View>
       </View>
 

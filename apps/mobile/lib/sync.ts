@@ -18,11 +18,12 @@ export async function pullFromSupabase(userId: string): Promise<Task[]> {
     const localTasks = await loadTasksFromCache(userId);
     console.log(`[Sync] Loaded ${localTasks.length} local tasks from cache`);
 
-    // Fetch tasks from Supabase
+    // Fetch tasks from Supabase (filter out soft-deleted tasks - Problem 13)
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false });
 
     if (error) throw error;
@@ -61,6 +62,16 @@ export async function pullFromSupabase(userId: string): Promise<Task[]> {
         // 🔥 Recurring options - parse from JSON
         recurring_options: recurringOptions,
         is_completed: isCompleted,
+        // Visibility fields (Problem 5)
+        duration_days: row.duration_days ?? null,
+        start_date: row.start_date ?? null,
+        visible_from: row.visible_from ?? null,
+        visible_until: row.visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: row.deleted_at ?? null,
+        // Timezone-safe time fields (Problem 17)
+        event_time: row.event_time ?? null,
+        event_timezone: row.event_timezone ?? null,
       };
     });
 
@@ -146,6 +157,16 @@ export async function pushTaskToSupabase(task: Task): Promise<Task> {
         recurring: task.recurring_options ? true : false,
         // 🔥 Recurring options MUST be pushed to Supabase as JSON
         recurring_options: recurringOptionsJson,
+        // Visibility fields (Problem 5)
+        duration_days: (task as any).duration_days ?? null,
+        start_date: (task as any).start_date ?? null,
+        visible_from: (task as any).visible_from ?? null,
+        visible_until: (task as any).visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: (task as any).deleted_at ?? null,
+        // Timezone-safe time fields (Problem 17)
+        event_time: (task as any).event_time ?? null,
+        event_timezone: (task as any).event_timezone ?? null,
       })
       .select('*')
       .single();
@@ -188,7 +209,17 @@ export async function pushTaskToSupabase(task: Task): Promise<Task> {
       // 🔥 Map recurring options from Supabase response
       recurring_options: recurringOptions,
       is_completed: isCompleted,
-    };
+      // Visibility fields (Problem 5)
+      duration_days: data.duration_days ?? null,
+      start_date: data.start_date ?? null,
+      visible_from: data.visible_from ?? null,
+      visible_until: data.visible_until ?? null,
+      // Soft delete field (Problem 13)
+      deleted_at: data.deleted_at ?? null,
+      // Timezone-safe time fields (Problem 17)
+      event_time: data.event_time ?? null,
+      event_timezone: data.event_timezone ?? null,
+    } as Task;
 
     console.log('[Sync] Task pushed successfully:', task.id);
     return returnedTask;
@@ -229,6 +260,16 @@ export async function pushTasksToSupabaseBatch(tasks: Task[]): Promise<Task[]> {
         updated_at: task.updated_at,
         recurring: task.recurring_options ? true : false,
         recurring_options: recurringOptionsJson,
+        // Visibility fields (Problem 5)
+        duration_days: (task as any).duration_days ?? null,
+        start_date: (task as any).start_date ?? null,
+        visible_from: (task as any).visible_from ?? null,
+        visible_until: (task as any).visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: (task as any).deleted_at ?? null,
+        // Timezone-safe time fields (Problem 17)
+        event_time: (task as any).event_time ?? null,
+        event_timezone: (task as any).event_timezone ?? null,
       };
     });
 
@@ -270,7 +311,17 @@ export async function pushTasksToSupabaseBatch(tasks: Task[]): Promise<Task[]> {
         updated_at: row.updated_at,
         recurring_options: recurringOptions,
         is_completed: isCompleted,
-      };
+        // Visibility fields (Problem 5)
+        duration_days: row.duration_days ?? null,
+        start_date: row.start_date ?? null,
+        visible_from: row.visible_from ?? null,
+        visible_until: row.visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: row.deleted_at ?? null,
+        // Timezone-safe time fields (Problem 17)
+        event_time: row.event_time ?? null,
+        event_timezone: row.event_timezone ?? null,
+      } as Task;
     });
 
     // Update local cache with server responses
@@ -310,6 +361,7 @@ export async function deleteTaskFromSupabase(taskId: string, userId: string): Pr
 
 /**
  * Full sync: pull all tasks from Supabase
+ * Also syncs weekly checklists (Problem 10)
  * Returns tasks from cache if sync fails
  */
 export async function syncNow(): Promise<Task[]> {
@@ -326,6 +378,38 @@ export async function syncNow(): Promise<Task[]> {
 
     // Pull all tasks from server (replaces local cache)
     const tasks = await pullFromSupabase(userId);
+
+    // Sync weekly checklists (Problem 10)
+    try {
+      const { syncWeeklyChecklists } = await import('./syncWeeklyChecklists');
+      await syncWeeklyChecklists(userId);
+      console.log('[Sync] Weekly checklists synced');
+    } catch (checklistError) {
+      console.warn('[Sync] Weekly checklist sync failed (non-critical):', checklistError);
+      // Don't throw - tasks sync is more critical
+    }
+
+    // Sync travel events (Problem 16)
+    try {
+      const { syncTravelEvents } = await import('./syncTravelEvents');
+      await syncTravelEvents(userId);
+      console.log('[Sync] Travel events synced');
+    } catch (travelError) {
+      console.warn('[Sync] Travel events sync failed (non-critical):', travelError);
+      // Don't throw - tasks sync is more critical
+    }
+
+    // Problem 13: Auto-purge old deleted tasks (30+ days old)
+    try {
+      const { autoPurgeTrash } = await import('../database/dbTrash');
+      const purgedCount = await autoPurgeTrash(userId, 30);
+      if (purgedCount > 0) {
+        console.log(`[Sync] Auto-purged ${purgedCount} old tasks from Trash`);
+      }
+    } catch (purgeError) {
+      console.warn('[Sync] Auto-purge failed (non-critical):', purgeError);
+      // Don't throw - tasks sync is more critical
+    }
 
     console.log('[Sync] Full sync completed successfully, fetched', tasks.length, 'tasks');
     return tasks;

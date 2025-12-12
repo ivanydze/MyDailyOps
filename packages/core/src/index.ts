@@ -6,5 +6,9 @@ export * from "./models/shared";
 export { createTask, normalizeTask } from "./models/task";
 export type { RecurringType } from "./models/task";
 
+// Export travel event utilities
+export { createTravelEvent, getTravelEventColor, TRAVEL_EVENT_COLORS } from "./models/travelEvent";
+export type { TravelEvent } from "./models/travelEvent";
+
 // Export utils
 export * from "./utils";

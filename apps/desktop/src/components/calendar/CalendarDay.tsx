@@ -5,9 +5,11 @@
  * Displays the date and all tasks visible on that day.
  */
 
-import { format, isToday, isEqual, startOfDay } from "date-fns";
+import { format, isEqual, startOfDay } from "date-fns";
 import type { DayTaskGroup } from "../../utils/calendar";
 import TaskCalendarItem from "./TaskCalendarItem";
+import TravelEventItem from "./TravelEventItem";
+import type { TravelEvent } from "@mydailyops/core";
 
 interface CalendarDayProps {
   dayGroup: DayTaskGroup;
@@ -16,6 +18,7 @@ interface CalendarDayProps {
   onDateClick?: (date: Date) => void;
   onTaskClick?: (task: any) => void;
   onTaskToggleComplete?: (task: any) => void;
+  onTravelEventClick?: (event: TravelEvent) => void;
   TaskItemComponent?: React.ComponentType<{
     task: any;
     date: Date;
@@ -35,12 +38,13 @@ export default function CalendarDay({
   onDateClick,
   onTaskClick,
   onTaskToggleComplete,
+  onTravelEventClick,
   TaskItemComponent = TaskCalendarItem,
   maxTasksVisible,
   compact = false,
   isOtherMonth = false,
 }: CalendarDayProps) {
-  const { date, tasks } = dayGroup;
+  const { date, tasks, travelEvents } = dayGroup;
   const dateDay = startOfDay(date);
   const today = startOfDay(new Date());
   
@@ -103,9 +107,25 @@ export default function CalendarDay({
         </button>
       </div>
 
-      {/* Tasks List */}
+      {/* Content List (Travel Events + Tasks) */}
       <div className={`flex-1 ${compact ? 'p-1' : 'p-2'} space-y-1 overflow-y-auto`}>
-        {tasks.length === 0 ? (
+        {/* Travel Events (Problem 16) */}
+        {travelEvents && travelEvents.length > 0 && (
+          <div className="space-y-1 mb-1">
+            {travelEvents.map((event) => (
+              <TravelEventItem
+                key={event.id}
+                event={event}
+                date={date}
+                compact={compact}
+                onClick={onTravelEventClick}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Tasks */}
+        {tasks.length === 0 && (!travelEvents || travelEvents.length === 0) ? (
           <div className="text-xs text-gray-400 dark:text-gray-600 text-center py-1">
             {compact ? '' : 'No tasks'}
           </div>

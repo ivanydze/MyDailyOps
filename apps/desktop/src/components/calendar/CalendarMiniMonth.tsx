@@ -5,7 +5,7 @@
  * Shows a mini calendar grid with task indicators.
  */
 
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isEqual, startOfDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isEqual, startOfDay } from "date-fns";
 import type { DayTaskGroup } from "../../utils/calendar";
 
 interface CalendarMiniMonthProps {
@@ -107,21 +107,28 @@ export default function CalendarMiniMonth({
               title={taskCount > 0 ? `${taskCount} task${taskCount > 1 ? 's' : ''}` : ''}
             >
               <span>{format(day, "d")}</span>
-              {/* Task Indicator */}
+              {/* Task Indicator - Enhanced Heatmap */}
               {taskCount > 0 && (
                 <span
                   className={`
                     absolute bottom-0.5 left-1/2 transform -translate-x-1/2
-                    w-1 h-1 rounded-full
+                    rounded-full transition-all
                     ${isTodayDate
-                      ? "bg-white"
-                      : taskCount > 3
-                        ? "bg-red-500"
-                        : taskCount > 1
-                          ? "bg-orange-500"
-                          : "bg-blue-500"
+                      ? "bg-white w-1.5 h-1.5"
+                      : taskCount >= 10
+                        ? "bg-red-600 dark:bg-red-500 w-2 h-2 opacity-90"
+                        : taskCount >= 7
+                          ? "bg-red-500 dark:bg-red-600 w-1.5 h-1.5 opacity-85"
+                          : taskCount >= 5
+                            ? "bg-orange-600 dark:bg-orange-500 w-1.5 h-1.5 opacity-80"
+                            : taskCount >= 3
+                              ? "bg-orange-500 dark:bg-orange-600 w-1 h-1 opacity-75"
+                              : taskCount === 2
+                                ? "bg-yellow-500 dark:bg-yellow-600 w-1 h-1 opacity-70"
+                                : "bg-blue-500 dark:bg-blue-600 w-1 h-1 opacity-65"
                     }
                   `}
+                  title={`${taskCount} task${taskCount !== 1 ? 's' : ''}`}
                 />
               )}
             </button>

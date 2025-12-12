@@ -7,10 +7,11 @@
 
 import { useState } from "react";
 import { format, addDays, subDays } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Plane } from "lucide-react";
 import DatePicker from "react-datepicker";
 import { useCalendarTasks } from "../../hooks/useCalendarTasks";
 import TaskCalendarItem from "./TaskCalendarItem";
+import type { TravelEvent } from "@mydailyops/core";
 
 interface CalendarDayViewProps {
   date: Date;
@@ -18,7 +19,9 @@ interface CalendarDayViewProps {
   onDateChange?: (date: Date) => void;
   onTaskClick?: (task: any) => void;
   onTaskToggleComplete?: (task: any) => void;
+  onTravelEventClick?: (event: TravelEvent) => void;
   onAddTask?: (date?: Date) => void;
+  onAddTravelEvent?: (date?: Date) => void;
 }
 
 export default function CalendarDayView({
@@ -27,7 +30,9 @@ export default function CalendarDayView({
   onDateChange,
   onTaskClick,
   onTaskToggleComplete,
+  onTravelEventClick: _onTravelEventClick,
   onAddTask,
+  onAddTravelEvent,
 }: CalendarDayViewProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(date);
@@ -148,16 +153,27 @@ export default function CalendarDayView({
           </button>
         </div>
 
-        {/* Add Task Button */}
-        {onAddTask && (
-          <button
-            onClick={() => onAddTask(selectedDate)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus size={20} />
-            Add Task
-          </button>
-        )}
+        {/* Add Task and Travel Event Buttons */}
+        <div className="flex items-center gap-2">
+          {onAddTask && (
+            <button
+              onClick={() => onAddTask(selectedDate)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus size={20} />
+              Add Task
+            </button>
+          )}
+          {onAddTravelEvent && (
+            <button
+              onClick={() => onAddTravelEvent(selectedDate)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Plane size={20} />
+              Add Travel Event
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Day Content */}

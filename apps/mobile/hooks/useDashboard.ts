@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Task } from '../types/task';
 import { useSync } from './useSync';
 import { isVisibleToday, isUpcoming } from '../utils/visibility';
+import { shouldShowTaskOnWeekend } from '../utils/weekend';
+import { useSettingsStore } from '../stores/settingsStore';
 import { parseISO, isBefore, startOfDay } from 'date-fns';
 
 export interface DashboardData {
@@ -20,6 +22,7 @@ export interface DashboardData {
  */
 export function useDashboard(): DashboardData {
   const { tasks, loading, syncing, refreshTasks, syncTasks } = useSync();
+  const weekendFilter = useSettingsStore((state) => state.weekendFilter);
 
   const dashboardData = useMemo(() => {
     const now = new Date();
@@ -68,13 +71,18 @@ export function useDashboard(): DashboardData {
       const isTaskUpcoming = isUpcoming(visibleFrom, now, 7);
 
       // Today: tasks visible today (using visibility engine)
+      // Problem 8: Apply weekend filtering (Calendar & Upcoming ignore this filter)
       if (isTaskVisibleToday) {
-        todayTasks.push(task);
+        // Apply weekend filter for Today view
+        if (shouldShowTaskOnWeekend(task, weekendFilter)) {
+          todayTasks.push(task);
+        }
         return; // Don't add to other groups
       }
 
       // Upcoming: tasks that will become visible in the next 7 days (Problem 4)
       // Formula: visible_from > today && visible_from <= today + 7
+      // Problem 8: Upcoming ignores weekend filter (shows all tasks)
       if (isTaskUpcoming) {
         upcomingTasks.push(task);
         return; // Don't add to overdue

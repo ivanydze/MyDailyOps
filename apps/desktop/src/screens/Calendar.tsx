@@ -8,12 +8,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, getYear, startOfYear, startOfWeek, startOfMonth } from "date-fns";
-import { Calendar, Grid, LayoutGrid, Calendar as CalendarIcon } from "lucide-react";
+import { Grid, LayoutGrid, Calendar as CalendarIcon } from "lucide-react";
 import { useTaskStore } from "../stores/taskStore";
 import CalendarDayView from "../components/calendar/CalendarDayView";
 import CalendarWeekView from "../components/calendar/CalendarWeekView";
 import CalendarMonthView from "../components/calendar/CalendarMonthView";
 import CalendarYearView from "../components/calendar/CalendarYearView";
+import { isRecurringTemplate } from "../utils/recurring";
+import toast from "react-hot-toast";
+import type { TravelEvent } from "@mydailyops/core";
 
 type CalendarView = 'day' | 'week' | 'month' | 'year';
 
@@ -88,14 +91,37 @@ export default function Calendar() {
     navigate(`/tasks/${task.id}/edit`);
   };
 
+  // Handle travel event click - navigate to edit
+  const handleTravelEventClick = (event: TravelEvent) => {
+    navigate(`/travel-events/${event.id}/edit`);
+  };
+
+  // Handle add travel event - navigate to new travel event screen
+  const handleAddTravelEvent = (date?: Date) => {
+    const dateStr = date ? format(date, "yyyy-MM-dd") : format(selectedDate, "yyyy-MM-dd");
+    navigate(`/travel-events/new?date=${dateStr}`);
+  };
+
   // Handle task toggle complete
   const handleTaskToggleComplete = async (task: any) => {
     try {
+      // PROBLEM 9: Prevent completing recurring templates
+      if (isRecurringTemplate(task)) {
+        toast.error("Recurring templates cannot be completed. Only occurrences can be completed.");
+        return;
+      }
+      
       const newStatus = task.status === "done" ? "pending" : "done";
       await updateTask(task.id, { status: newStatus });
       await fetchTasks(); // Refresh to get updated list
-    } catch (error) {
-      console.error("[Calendar] Error toggling task status:", error);
+    } catch (error: any) {
+      // Handle error from taskStore (template completion attempt)
+      if (error.message && error.message.includes("Cannot complete recurring template")) {
+        toast.error(error.message);
+      } else {
+        console.error("[Calendar] Error toggling task status:", error);
+        toast.error("Failed to update task status");
+      }
     }
   };
 
@@ -175,7 +201,9 @@ export default function Calendar() {
             onDateChange={handleDateChange}
             onTaskClick={handleTaskClick}
             onTaskToggleComplete={handleTaskToggleComplete}
+            onTravelEventClick={handleTravelEventClick}
             onAddTask={handleAddTask}
+            onAddTravelEvent={handleAddTravelEvent}
           />
         )}
 
@@ -186,6 +214,7 @@ export default function Calendar() {
             onDateChange={handleDateChange}
             onTaskClick={handleTaskClick}
             onTaskToggleComplete={handleTaskToggleComplete}
+            onTravelEventClick={handleTravelEventClick}
             onAddTask={handleAddTask}
           />
         )}
@@ -197,6 +226,7 @@ export default function Calendar() {
             onDateChange={handleDateChange}
             onTaskClick={handleTaskClick}
             onTaskToggleComplete={handleTaskToggleComplete}
+            onTravelEventClick={handleTravelEventClick}
             onAddTask={handleAddTask}
           />
         )}

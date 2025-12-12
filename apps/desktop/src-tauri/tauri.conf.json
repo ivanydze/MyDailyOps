@@ -36,6 +36,14 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/USERNAME/REPO/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM3MzIwNzk0M0MxNjhGM0EKUldRNmp4WThsQWN5TjVYeDd2S3dFN2Y2ZEJlNWZqQnp1T01wemZUS3luaDZFbUhQb0MxUndRYnAK"
     }
   }
 }

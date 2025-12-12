@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import DatePicker from "react-datepicker";
 import { useCalendarTasks } from "../../hooks/useCalendarTasks";
 import CalendarDay from "./CalendarDay";
+import type { TravelEvent } from "@mydailyops/core";
 
 interface CalendarMonthViewProps {
   month: Date;                   // Any date in the month
@@ -18,6 +19,7 @@ interface CalendarMonthViewProps {
   onDateChange?: (date: Date) => void;
   onTaskClick?: (task: any) => void;
   onTaskToggleComplete?: (task: any) => void;
+  onTravelEventClick?: (event: TravelEvent) => void;
   onAddTask?: (date?: Date) => void;
 }
 
@@ -27,6 +29,7 @@ export default function CalendarMonthView({
   onDateChange,
   onTaskClick,
   onTaskToggleComplete,
+  onTravelEventClick,
   onAddTask,
 }: CalendarMonthViewProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -213,6 +216,7 @@ export default function CalendarMonthView({
                 date: new Date(day),
                 dateKey,
                 tasks: [],
+                travelEvents: [],
               };
 
               const isCurrentMonth = isInCurrentMonth(day);
@@ -230,6 +234,7 @@ export default function CalendarMonthView({
                   }}
                   onTaskClick={onTaskClick}
                   onTaskToggleComplete={onTaskToggleComplete}
+                  onTravelEventClick={onTravelEventClick}
                 />
               );
             })}

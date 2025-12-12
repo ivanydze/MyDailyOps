@@ -9,7 +9,7 @@
  */
 
 import { parseISO, startOfDay, addDays, isBefore, isEqual, differenceInDays } from 'date-fns';
-import type { Task } from '@mydailyops/core';
+import type { Task, TravelEvent } from '@mydailyops/core';
 import { isTaskVisible } from './visibility';
 import { isRecurringTemplate } from './recurring';
 
@@ -41,6 +41,7 @@ export interface DayTaskGroup {
   date: Date;                     // The specific day
   dateKey: string;                // ISO date string (YYYY-MM-DD) for keying
   tasks: CalendarTask[];          // Tasks visible on this day
+  travelEvents: TravelEvent[];    // Travel events visible on this day (Problem 16)
 }
 
 /**
@@ -191,6 +192,57 @@ export function getTasksForDateRange(
 }
 
 /**
+ * Check if a travel event overlaps with a specific date
+ * 
+ * @param event TravelEvent to check
+ * @param date Date to check (will be normalized to start of day)
+ * @returns true if event overlaps with the date
+ */
+export function doesTravelEventOverlapDate(event: TravelEvent, date: Date): boolean {
+  try {
+    const checkDate = startOfDay(date);
+    const eventStart = startOfDay(parseISO(event.start_date));
+    const eventEnd = startOfDay(parseISO(event.end_date));
+
+    // Event overlaps if: event.start_date <= date <= event.end_date
+    return (isBefore(eventStart, checkDate) || isEqual(eventStart, checkDate)) &&
+           (isBefore(checkDate, eventEnd) || isEqual(checkDate, eventEnd));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Filter travel events for a date range
+ * 
+ * @param events Array of TravelEvent objects
+ * @param startDate Start date of range (inclusive)
+ * @param endDate End date of range (inclusive)
+ * @returns Array of TravelEvent objects that overlap with the date range
+ */
+export function getTravelEventsForDateRange(
+  events: TravelEvent[],
+  startDate: Date,
+  endDate: Date
+): TravelEvent[] {
+  const rangeStart = startOfDay(startDate);
+  const rangeEnd = startOfDay(endDate);
+
+  return events.filter(event => {
+    try {
+      const eventStart = startOfDay(parseISO(event.start_date));
+      const eventEnd = startOfDay(parseISO(event.end_date));
+
+      // Event overlaps if: event.start_date <= range.end_date AND event.end_date >= range.start_date
+      return (isBefore(eventStart, rangeEnd) || isEqual(eventStart, rangeEnd)) &&
+             (isBefore(rangeStart, eventEnd) || isEqual(rangeStart, eventEnd));
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
  * Group tasks by the days they appear on, handling multi-day spans
  * 
  * A task with visible_from = 2025-01-10 and visible_until = 2025-01-14
@@ -199,12 +251,14 @@ export function getTasksForDateRange(
  * @param calendarTasks Array of CalendarTask objects
  * @param startDate Start date of range (inclusive)
  * @param endDate End date of range (inclusive)
+ * @param travelEvents Optional array of TravelEvent objects to include (Problem 16)
  * @returns Array of DayTaskGroup objects, one per day in range
  */
 export function groupTasksByDay(
   calendarTasks: CalendarTask[],
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  travelEvents: TravelEvent[] = []
 ): DayTaskGroup[] {
   const result: DayTaskGroup[] = [];
 
@@ -234,11 +288,17 @@ export function groupTasksByDay(
       }
     }
 
+    // Find travel events for this day
+    const eventsForDay = travelEvents.filter(event => 
+      doesTravelEventOverlapDate(event, currentDay)
+    );
+
     // Create DayTaskGroup for this day
     result.push({
       date: new Date(currentDay),
       dateKey,
       tasks: tasksForDay,
+      travelEvents: eventsForDay,
     });
 
     // Move to next day

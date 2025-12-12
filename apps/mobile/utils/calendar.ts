@@ -9,7 +9,7 @@
  */
 
 import { parseISO, startOfDay, addDays, isBefore, isEqual, differenceInDays } from 'date-fns';
-import type { Task } from '@mydailyops/core';
+import type { Task, TravelEvent } from '@mydailyops/core';
 import { isTaskVisible } from './visibility';
 import { isRecurringTemplate } from './recurring';
 
@@ -41,6 +41,7 @@ export interface DayTaskGroup {
   date: Date;                     // The specific day
   dateKey: string;                // ISO date string (YYYY-MM-DD) for keying
   tasks: CalendarTask[];          // Tasks visible on this day
+  travelEvents: TravelEvent[];    // Travel events visible on this day (Problem 16)
 }
 
 /**
@@ -234,11 +235,17 @@ export function groupTasksByDay(
       }
     }
 
+    // Find all travel events visible on this day (Problem 16)
+    const eventsForDay: TravelEvent[] = travelEvents.filter(event =>
+      doesTravelEventOverlapDate(event, currentDay)
+    );
+
     // Create DayTaskGroup for this day
     result.push({
       date: new Date(currentDay),
       dateKey,
       tasks: tasksForDay,
+      travelEvents: eventsForDay,
     });
 
     // Move to next day

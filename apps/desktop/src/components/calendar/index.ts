@@ -9,4 +9,5 @@ export { default as CalendarWeekView } from './CalendarWeekView';
 export { default as CalendarMonthView } from './CalendarMonthView';
 export { default as CalendarYearView } from './CalendarYearView';
 export { default as CalendarMiniMonth } from './CalendarMiniMonth';
+export { default as TravelEventItem } from './TravelEventItem';
 

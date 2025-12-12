@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Card, Text, IconButton, useTheme, Chip } from 'react-native-paper';
 import { Task } from '../types/task';
 import { priorityColors, statusColors } from '../lib/theme';
+import { isRecurringTemplate } from '../utils/recurring';
 
 interface TaskCardProps {
   task: Task;
@@ -87,6 +88,7 @@ export function TaskCard({
   const theme = useTheme();
   const isDark = theme.dark;
   const isCompleted = task.status === 'done';
+  const isTemplate = isRecurringTemplate(task);
 
   const priorityColor = isDark
     ? priorityColors.dark[task.priority]
@@ -145,14 +147,25 @@ export function TaskCard({
                 <Text style={styles.pinnedIcon}>📌</Text>
               )}
               
-              {/* Status button */}
-              <IconButton
-                icon={statusIcon}
-                iconColor={statusColor}
-                size={24}
-                onPress={onToggleStatus}
-                style={styles.statusButton}
-              />
+              {/* Status button - hidden for recurring templates */}
+              {!isTemplate && (
+                <IconButton
+                  icon={statusIcon}
+                  iconColor={statusColor}
+                  size={24}
+                  onPress={onToggleStatus}
+                  style={styles.statusButton}
+                />
+              )}
+              {isTemplate && (
+                <IconButton
+                  icon="circle-outline"
+                  iconColor={theme.colors.disabled}
+                  size={24}
+                  disabled
+                  style={styles.statusButton}
+                />
+              )}
             </View>
           </View>
 

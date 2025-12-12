@@ -1,6 +1,8 @@
 import { Task } from "@mydailyops/core";
 import { format, isPast, isToday, isTomorrow } from "date-fns";
 import { CheckCircle2, Circle, Clock, Tag } from "lucide-react";
+import { isRecurringTemplate } from "../utils/recurring";
+import { formatEventTime } from "../utils/timezone";
 
 interface TaskCardProps {
   task: Task;
@@ -18,8 +20,17 @@ const priorityColors = {
 export default function TaskCard({ task, onToggleStatus, onEdit, onDelete }: TaskCardProps) {
   const isCompleted = task.status === "done";
   const priorityClass = priorityColors[task.priority];
+  const isTemplate = isRecurringTemplate(task);
 
+  // Get timezone-safe event time (Problem 17)
+  const eventTimeDisplay = formatEventTime(task);
+  
   const getDeadlineDisplay = () => {
+    // If event_time is set, prioritize it over deadline
+    if (eventTimeDisplay) {
+      return { text: eventTimeDisplay, class: "text-blue-600 dark:text-blue-400" };
+    }
+
     if (!task.deadline) return null;
 
     const deadline = new Date(task.deadline);
@@ -50,16 +61,24 @@ export default function TaskCard({ task, onToggleStatus, onEdit, onDelete }: Tas
     >
       <div className="flex items-start gap-3">
         {/* Status Toggle */}
-        <button
-          onClick={() => onToggleStatus?.(task)}
-          className="mt-0.5 flex-shrink-0 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-        >
-          {isCompleted ? (
-            <CheckCircle2 size={20} className="text-green-600 dark:text-green-400" />
-          ) : (
-            <Circle size={20} />
-          )}
-        </button>
+        {!isTemplate && (
+          <button
+            onClick={() => onToggleStatus?.(task)}
+            className="mt-0.5 flex-shrink-0 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            title={isCompleted ? "Mark as pending" : "Mark as done"}
+          >
+            {isCompleted ? (
+              <CheckCircle2 size={20} className="text-green-600 dark:text-green-400" />
+            ) : (
+              <Circle size={20} />
+            )}
+          </button>
+        )}
+        {isTemplate && (
+          <div className="mt-0.5 flex-shrink-0 text-gray-400 dark:text-gray-500" title="Recurring template cannot be completed">
+            <Circle size={20} className="opacity-50" />
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">

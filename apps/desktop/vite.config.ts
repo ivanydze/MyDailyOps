@@ -21,6 +21,14 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "@": "/src",
+      "@mydailyops/core": new URL("../../packages/core/src", import.meta.url).pathname,
+    },
+  },
+  build: {
+    rollupOptions: {
+      external: [
+        "@tauri-apps/plugin-updater", // Tauri plugin loaded at runtime
+      ],
     },
   },
 }));

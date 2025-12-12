@@ -5,6 +5,8 @@ import TaskCard from "../components/TaskCard";
 import { parseISO, isPast, isToday, isTomorrow, addDays } from "date-fns";
 import { Plus, Search, Filter } from "lucide-react";
 import type { TaskFilter } from "@mydailyops/core";
+import { isRecurringTemplate } from "../utils/recurring";
+import toast from "react-hot-toast";
 
 export default function AllTasks() {
   const navigate = useNavigate();
@@ -99,6 +101,12 @@ export default function AllTasks() {
   }, [filteredTasks]);
 
   const handleToggleStatus = async (task: any) => {
+    // PROBLEM 9: Prevent completing recurring templates
+    if (isRecurringTemplate(task)) {
+      toast.error("Recurring templates cannot be completed. Only occurrences can be completed.");
+      return;
+    }
+    
     const newStatus = task.status === "done" ? "pending" : "done";
     await updateTask(task.id, { status: newStatus });
     await fetchTasks();

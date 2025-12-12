@@ -9,6 +9,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, startOfWeek } from "date-fns";
 import { useTaskStore } from "../stores/taskStore";
 import CalendarWeekView from "../components/calendar/CalendarWeekView";
+import { isRecurringTemplate } from "../utils/recurring";
+import toast from "react-hot-toast";
 
 export default function CalendarWeekScreen() {
   const navigate = useNavigate();
@@ -46,11 +48,23 @@ export default function CalendarWeekScreen() {
   // Handle task toggle complete
   const handleTaskToggleComplete = async (task: any) => {
     try {
+      // PROBLEM 9: Prevent completing recurring templates
+      if (isRecurringTemplate(task)) {
+        toast.error("Recurring templates cannot be completed. Only occurrences can be completed.");
+        return;
+      }
+      
       const newStatus = task.status === "done" ? "pending" : "done";
       await updateTask(task.id, { status: newStatus });
       await fetchTasks(); // Refresh to get updated list
-    } catch (error) {
-      console.error("[CalendarWeek] Error toggling task status:", error);
+    } catch (error: any) {
+      // Handle error from taskStore (template completion attempt)
+      if (error.message && error.message.includes("Cannot complete recurring template")) {
+        toast.error(error.message);
+      } else {
+        console.error("[CalendarWeek] Error toggling task status:", error);
+        toast.error("Failed to update task status");
+      }
     }
   };
 
@@ -60,10 +74,7 @@ export default function CalendarWeekScreen() {
     navigate(`/tasks/new?deadline=${dateStr}`);
   };
 
-  // Handle date change - navigate to day view
-  const handleDateChange = (date: Date) => {
-    navigate(`/calendar/day?date=${format(date, "yyyy-MM-dd")}`);
-  };
+  // handleDateChange is passed to CalendarWeekView component via onDateChange prop
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">

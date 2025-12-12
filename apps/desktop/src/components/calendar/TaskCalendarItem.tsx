@@ -5,9 +5,11 @@
  * More compact than TaskCard, optimized for calendar grid layouts.
  */
 
-import { CheckCircle2, Circle, Tag } from "lucide-react";
+import { CheckCircle2, Circle, Tag, Clock } from "lucide-react";
 import type { CalendarTask, TaskDayContext } from "../../utils/calendar";
 import { getDayContextForTask } from "../../utils/calendar";
+import { isRecurringTemplate } from "../../utils/recurring";
+import { formatEventTime } from "../../utils/timezone";
 
 interface TaskCalendarItemProps {
   task: CalendarTask;
@@ -33,6 +35,7 @@ export default function TaskCalendarItem({
   const taskObj = task.task;
   const isCompleted = taskObj.status === "done" || (taskObj as any).is_completed === true;
   const priorityClass = priorityColors[taskObj.priority];
+  const isTemplate = isRecurringTemplate(taskObj);
 
   // Get day context if not provided
   const dayContext = context || getDayContextForTask(task, date);
@@ -51,13 +54,14 @@ export default function TaskCalendarItem({
     >
       <div className="flex items-start gap-2">
         {/* Status Toggle */}
-        {onToggleComplete && (
+        {onToggleComplete && !isTemplate && (
           <button
             onClick={(e) => {
               e.stopPropagation(); // Prevent triggering onClick on parent
               onToggleComplete(taskObj);
             }}
             className="flex-shrink-0 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mt-0.5"
+            title={isCompleted ? "Mark as pending" : "Mark as done"}
           >
             {isCompleted ? (
               <CheckCircle2 size={16} className="text-green-600 dark:text-green-400" />
@@ -65,6 +69,11 @@ export default function TaskCalendarItem({
               <Circle size={16} />
             )}
           </button>
+        )}
+        {isTemplate && (
+          <div className="flex-shrink-0 text-gray-400 dark:text-gray-500 mt-0.5" title="Recurring template cannot be completed">
+            <Circle size={16} className="opacity-50" />
+          </div>
         )}
 
         {/* Content */}
@@ -84,17 +93,54 @@ export default function TaskCalendarItem({
             )}
           </div>
 
-          {/* Day Context Label (for multi-day tasks) */}
-          {contextLabel && (
-            <div className="mt-1">
-              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                {contextLabel}
-              </span>
+          {/* Day Context Label and Progress Bar (for multi-day tasks) */}
+          {dayContext && dayContext.totalDays > 1 && (
+            <div className="mt-1.5 space-y-1">
+              {/* Text Label */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                  {contextLabel}
+                </span>
+                {dayContext.isFirstDay && (
+                  <span className="text-xs text-gray-400 dark:text-gray-500">Start</span>
+                )}
+                {dayContext.isLastDay && (
+                  <span className="text-xs text-gray-400 dark:text-gray-500">End</span>
+                )}
+              </div>
+              {/* Visual Progress Bar */}
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    isCompleted
+                      ? 'bg-gray-400 dark:bg-gray-500'
+                      : priorityClass.includes('red')
+                      ? 'bg-red-500 dark:bg-red-600'
+                      : priorityClass.includes('yellow')
+                      ? 'bg-yellow-500 dark:bg-yellow-600'
+                      : 'bg-green-500 dark:bg-green-600'
+                  }`}
+                  style={{
+                    width: `${(dayContext.dayIndex / dayContext.totalDays) * 100}%`,
+                  }}
+                  title={`Progress: ${dayContext.dayIndex} of ${dayContext.totalDays} days`}
+                />
+              </div>
             </div>
           )}
 
           {/* Metadata Row */}
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {/* Event Time (Timezone-Safe) */}
+            {formatEventTime(taskObj) && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                <Clock size={10} />
+                <span className="truncate max-w-[100px]" title={formatEventTime(taskObj)}>
+                  {formatEventTime(taskObj)}
+                </span>
+              </span>
+            )}
+            
             {/* Category */}
             {(taskObj as any).category && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">

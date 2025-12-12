@@ -29,6 +29,8 @@ import {
   type DayTaskGroup,
   type CalendarTaskQuery,
 } from '../utils/calendar';
+import { loadTravelEventsForDateRange } from '../lib/dbTravelEvents';
+import type { TravelEvent } from '@mydailyops/core';
 
 /**
  * Options for useCalendarTasks hook
@@ -119,6 +121,10 @@ export function useCalendarTasks(
   // Tasks are already filtered by userId in taskStore, so we can extract it from the first task
   const [userId, setUserId] = useState<string | null>(null);
   const [userIdError, setUserIdError] = useState<string | null>(null);
+  
+  // Travel events state (Problem 16)
+  const [travelEvents, setTravelEvents] = useState<TravelEvent[]>([]);
+  const [travelEventsLoading, setTravelEventsLoading] = useState(false);
 
   // Get userId: prefer from tasks, fallback to async fetch
   useEffect(() => {
@@ -153,6 +159,34 @@ export function useCalendarTasks(
     return calculateDateRange(view, centerDate);
   }, [view, centerDate]);
 
+  // Load travel events for the date range (Problem 16)
+  useEffect(() => {
+    if (!userId) {
+      setTravelEvents([]);
+      return;
+    }
+
+    async function loadTravelEvents() {
+      setTravelEventsLoading(true);
+      try {
+        const { startDate, endDate } = dateRange;
+        // Format dates as YYYY-MM-DD for database query
+        const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+        const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        
+        const events = await loadTravelEventsForDateRange(userId!, startDateStr, endDateStr);
+        setTravelEvents(events);
+      } catch (error: any) {
+        console.error('[useCalendarTasks] Error loading travel events:', error);
+        setTravelEvents([]); // On error, set empty array
+      } finally {
+        setTravelEventsLoading(false);
+      }
+    }
+
+    loadTravelEvents();
+  }, [userId, dateRange]);
+
   // Memoize dayGroups calculation
   // Only recalculate when: tasks, dateRange, includeCompleted, or userId change
   const dayGroups = useMemo((): DayTaskGroup[] => {
@@ -166,7 +200,7 @@ export function useCalendarTasks(
       // Still need to return day groups for the date range (even if empty)
       // This ensures the calendar view has the correct structure
       const { startDate, endDate } = dateRange;
-      return groupTasksByDay([], startDate, endDate);
+      return groupTasksByDay([], startDate, endDate, travelEvents);
     }
 
     // Create query for filtering tasks
@@ -180,14 +214,14 @@ export function useCalendarTasks(
     // Filter tasks for the date range
     const calendarTasks = getTasksForDateRange(tasks, query);
 
-    // Group tasks by day
-    const grouped = groupTasksByDay(calendarTasks, dateRange.startDate, dateRange.endDate);
+    // Group tasks by day, including travel events (Problem 16)
+    const grouped = groupTasksByDay(calendarTasks, dateRange.startDate, dateRange.endDate, travelEvents);
 
     return grouped;
-  }, [tasks, dateRange.startDate, dateRange.endDate, includeCompleted, userId]);
+  }, [tasks, dateRange.startDate, dateRange.endDate, includeCompleted, userId, travelEvents]);
 
   // Combine loading states
-  const isLoading = tasksLoading || userId === null;
+  const isLoading = tasksLoading || travelEventsLoading || userId === null;
 
   // Combine error states (prefer tasksError over userIdError)
   const error = tasksError || userIdError;

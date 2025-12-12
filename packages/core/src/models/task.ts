@@ -30,6 +30,10 @@ export interface Task {
   // Legacy fields for backward compatibility (optional)
   recurring?: boolean;
   recurring_options?: RecurringOptions | null;
+
+  // Timezone-safe time fields (Problem 17: Timezone-Safe Task Time)
+  event_time?: string; // HH:mm format (e.g., "14:00")
+  event_timezone?: string; // IANA timezone identifier (e.g., "Europe/London")
 }
 
 /**
@@ -74,6 +78,8 @@ export function createTask(overrides: Partial<Task> = {}): Task {
     recurringDaysOfWeek: overrides.recurringDaysOfWeek,
     recurringEndDate: overrides.recurringEndDate,
     parentRecurringId: overrides.parentRecurringId,
+    event_time: overrides.event_time,
+    event_timezone: overrides.event_timezone,
     ...overrides,
   };
 }

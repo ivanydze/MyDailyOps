@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { format, addYears, subYears, startOfYear, getYear } from "date-fns";
+import { startOfYear, getYear } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useCalendarTasks } from "../../hooks/useCalendarTasks";
 import CalendarMiniMonth from "./CalendarMiniMonth";
@@ -25,7 +25,7 @@ export default function CalendarYearView({
   includeCompleted = false,
   onMonthClick,
   onDateChange,
-  onTaskClick,
+  onTaskClick: _onTaskClick,
   onAddTask,
 }: CalendarYearViewProps) {
   const [selectedYear, setSelectedYear] = useState(year);

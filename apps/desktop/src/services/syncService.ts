@@ -10,6 +10,8 @@ import type { Task } from '@mydailyops/core';
 
 let isInitialized = false;
 let isSyncing = false;
+let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
+let isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
 /**
  * Initialize sync service
@@ -40,11 +42,12 @@ export async function pullFromSupabase(userId: string): Promise<Task[]> {
     const localTasks = await db.loadTasksFromCache(userId);
     console.log(`[Sync] Loaded ${localTasks.length} local tasks from cache`);
 
-    // Fetch tasks from Supabase
+    // Fetch tasks from Supabase (filter out soft-deleted tasks - Problem 13)
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -84,6 +87,13 @@ export async function pullFromSupabase(userId: string): Promise<Task[]> {
         updated_at: row.updated_at,
         recurring_options: recurringOptions,
         is_completed: isCompleted,
+        // Visibility fields (Problem 5)
+        duration_days: row.duration_days ?? null,
+        start_date: row.start_date ?? null,
+        visible_from: row.visible_from ?? null,
+        visible_until: row.visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: row.deleted_at ?? null,
       } as Task;
     });
 
@@ -172,6 +182,16 @@ export async function pushTaskToSupabase(task: Task): Promise<Task> {
         updated_at: task.updated_at,
         recurring: task.recurring_options ? true : false,
         recurring_options: recurringOptionsJson,
+        // Visibility fields (Problem 5)
+        duration_days: (task as any).duration_days ?? null,
+        start_date: (task as any).start_date ?? null,
+        visible_from: (task as any).visible_from ?? null,
+        visible_until: (task as any).visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: (task as any).deleted_at ?? null,
+        // Timezone-safe time fields (Problem 17)
+        event_time: (task as any).event_time ?? null,
+        event_timezone: (task as any).event_timezone ?? null,
       }, {
         onConflict: 'id'
       })
@@ -217,7 +237,10 @@ export async function pushTaskToSupabase(task: Task): Promise<Task> {
       updated_at: data.updated_at,
       recurring_options: recurringOptions,
       is_completed: isCompleted,
-    };
+      // Timezone-safe time fields (Problem 17)
+      event_time: data.event_time ?? null,
+      event_timezone: data.event_timezone ?? null,
+    } as any as Task;
 
     // Update local cache with server response
     await db.upsertTaskToCache(returnedTask);
@@ -260,6 +283,16 @@ export async function pushTasksToSupabaseBatch(tasks: Task[]): Promise<Task[]> {
         updated_at: task.updated_at,
         recurring: task.recurring_options ? true : false,
         recurring_options: recurringOptionsJson,
+        // Visibility fields (Problem 5)
+        duration_days: (task as any).duration_days ?? null,
+        start_date: (task as any).start_date ?? null,
+        visible_from: (task as any).visible_from ?? null,
+        visible_until: (task as any).visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: (task as any).deleted_at ?? null,
+        // Timezone-safe time fields (Problem 17)
+        event_time: (task as any).event_time ?? null,
+        event_timezone: (task as any).event_timezone ?? null,
       };
     });
 
@@ -307,6 +340,16 @@ export async function pushTasksToSupabaseBatch(tasks: Task[]): Promise<Task[]> {
         updated_at: row.updated_at,
         recurring_options: recurringOptions,
         is_completed: isCompleted,
+        // Visibility fields (Problem 5)
+        duration_days: row.duration_days ?? null,
+        start_date: row.start_date ?? null,
+        visible_from: row.visible_from ?? null,
+        visible_until: row.visible_until ?? null,
+        // Soft delete field (Problem 13)
+        deleted_at: row.deleted_at ?? null,
+        // Timezone-safe time fields (Problem 17)
+        event_time: row.event_time ?? null,
+        event_timezone: row.event_timezone ?? null,
       } as Task;
     });
 
@@ -477,10 +520,18 @@ async function resolveConflicts(userId: string): Promise<void> {
 
 /**
  * Full sync: pull from Supabase, push local changes, resolve conflicts
+ * Also syncs weekly checklists
+ * Problem 13: Also runs auto-purge for old deleted tasks
  */
 export async function syncNow(): Promise<Task[]> {
   if (isSyncing) {
     console.log('[Sync] Sync already in progress, skipping');
+    return [];
+  }
+
+  // Don't sync if offline
+  if (!isOnline) {
+    console.log('[Sync] Device is offline, skipping sync');
     return [];
   }
 
@@ -505,6 +556,38 @@ export async function syncNow(): Promise<Task[]> {
     // 3. Pull from Supabase (gets latest server state)
     const tasks = await pullFromSupabase(userId);
 
+    // 4. Sync weekly checklists (Problem 10)
+    try {
+      const { syncWeeklyChecklists } = await import('./syncWeeklyChecklists');
+      await syncWeeklyChecklists(userId);
+      console.log('[Sync] Weekly checklists synced');
+    } catch (checklistError) {
+      console.warn('[Sync] Weekly checklist sync failed (non-critical):', checklistError);
+      // Don't throw - tasks sync is more critical
+    }
+
+    // 5. Sync travel events (Problem 16)
+    try {
+      const { syncTravelEvents } = await import('./syncTravelEvents');
+      await syncTravelEvents(userId);
+      console.log('[Sync] Travel events synced');
+    } catch (travelError) {
+      console.warn('[Sync] Travel events sync failed (non-critical):', travelError);
+      // Don't throw - tasks sync is more critical
+    }
+
+    // 6. Problem 13: Auto-purge old deleted tasks (30+ days old)
+    try {
+      const { autoPurgeTrash } = await import('../lib/dbTrash');
+      const purgedCount = await autoPurgeTrash(userId, 30);
+      if (purgedCount > 0) {
+        console.log(`[Sync] Auto-purged ${purgedCount} old tasks from Trash`);
+      }
+    } catch (purgeError) {
+      console.warn('[Sync] Auto-purge failed (non-critical):', purgeError);
+      // Don't throw - tasks sync is more critical
+    }
+
     console.log('[Sync] Full sync completed successfully, fetched', tasks.length, 'tasks');
     return tasks;
   } catch (error) {
@@ -512,6 +595,64 @@ export async function syncNow(): Promise<Task[]> {
     throw error;
   } finally {
     isSyncing = false;
+  }
+}
+
+/**
+ * Start auto-polling for sync (every 45 seconds)
+ * Problem 18: Desktop Real-time Sync - Auto-polling fallback
+ */
+export function startAutoPolling(syncCallback: () => Promise<void>, intervalMs: number = 45000): void {
+  if (pollingIntervalId) {
+    console.log('[Sync] Auto-polling already started');
+    return;
+  }
+
+  console.log(`[Sync] Starting auto-polling every ${intervalMs / 1000} seconds`);
+  
+  pollingIntervalId = setInterval(async () => {
+    if (!isOnline || isSyncing) {
+      console.log('[Sync] Skipping auto-poll: offline or already syncing');
+      return;
+    }
+
+    try {
+      await syncCallback();
+    } catch (error) {
+      console.error('[Sync] Auto-poll sync failed:', error);
+    }
+  }, intervalMs);
+}
+
+/**
+ * Stop auto-polling
+ */
+export function stopAutoPolling(): void {
+  if (pollingIntervalId) {
+    console.log('[Sync] Stopping auto-polling');
+    clearInterval(pollingIntervalId);
+    pollingIntervalId = null;
+  }
+}
+
+/**
+ * Get current online status
+ */
+export function getOnlineStatus(): boolean {
+  return isOnline;
+}
+
+/**
+ * Set online status (called by event listeners)
+ */
+export function setOnlineStatus(online: boolean): void {
+  const wasOffline = !isOnline;
+  isOnline = online;
+  
+  if (wasOffline && online) {
+    console.log('[Sync] Device came online');
+  } else if (!wasOffline && !online) {
+    console.log('[Sync] Device went offline');
   }
 }
 

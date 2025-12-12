@@ -9,11 +9,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { useTaskStore } from "../stores/taskStore";
 import CalendarDayView from "../components/calendar/CalendarDayView";
+import { isRecurringTemplate } from "../utils/recurring";
+import toast from "react-hot-toast";
 
 export default function CalendarDayScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { updateTask, deleteTask, fetchTasks } = useTaskStore();
+  const { updateTask, fetchTasks } = useTaskStore();
 
   // Get date from URL params or use today
   const dateParam = searchParams.get("date");
@@ -44,11 +46,23 @@ export default function CalendarDayScreen() {
   // Handle task toggle complete
   const handleTaskToggleComplete = async (task: any) => {
     try {
+      // PROBLEM 9: Prevent completing recurring templates
+      if (isRecurringTemplate(task)) {
+        toast.error("Recurring templates cannot be completed. Only occurrences can be completed.");
+        return;
+      }
+      
       const newStatus = task.status === "done" ? "pending" : "done";
       await updateTask(task.id, { status: newStatus });
       await fetchTasks(); // Refresh to get updated list
-    } catch (error) {
-      console.error("[CalendarDay] Error toggling task status:", error);
+    } catch (error: any) {
+      // Handle error from taskStore (template completion attempt)
+      if (error.message && error.message.includes("Cannot complete recurring template")) {
+        toast.error(error.message);
+      } else {
+        console.error("[CalendarDay] Error toggling task status:", error);
+        toast.error("Failed to update task status");
+      }
     }
   };
 

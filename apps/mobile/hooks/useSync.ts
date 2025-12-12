@@ -15,7 +15,9 @@ import {
   isRecurringTemplate,
   findAllInstancesFromTemplate,
   deleteAllInstances,
+  ensureActiveOccurrence,
 } from '../utils/recurring';
+import { Alert } from 'react-native';
 import * as Crypto from 'expo-crypto';
 
 export interface UseSyncReturn {
@@ -66,8 +68,21 @@ export function useSync(): UseSyncReturn {
       // Don't set loading to true here - it causes UI flash and might hide tasks
       // Only set loading for initial load, not for refreshes after mutations
       setError(null);
-      const cachedTasks = await loadTasksFromCache(userId);
+      let cachedTasks = await loadTasksFromCache(userId);
       console.log(`[useSync] Loaded ${cachedTasks.length} tasks from cache`);
+      
+      // PROBLEM 2: Ensure active occurrences for all recurring templates
+      // Check and create active occurrences if needed (prevents overlap)
+      const templates = cachedTasks.filter(t => isRecurringTemplate(t));
+      for (const template of templates) {
+        try {
+          await ensureActiveOccurrence(template, cachedTasks);
+          // Reload tasks to get newly created occurrences
+          cachedTasks = await loadTasksFromCache(userId);
+        } catch (error) {
+          console.error(`[useSync] Error ensuring active occurrence for template ${template.id}:`, error);
+        }
+      }
       
       // Log breakdown for debugging
       const withDeadlines = cachedTasks.filter(t => t.deadline);
@@ -149,34 +164,38 @@ export function useSync(): UseSyncReturn {
       // Save template task to local cache immediately
       await upsertTaskToCache(newTask);
 
-      // Generate recurring instances if this is a recurring task
+      // PROBLEM 2: For recurring tasks, ensure active occurrence instead of pre-generating all
       if (newTask.recurring_options && newTask.recurring_options.type !== 'none') {
-        console.log('[useSync] Generating recurring instances for task:', newTask.id);
-        const instances = await generateRecurringInstances(newTask);
-        console.log('[useSync] Generated', instances.length, 'instances');
+        console.log('[useSync] Ensuring active occurrence for recurring task:', newTask.id);
         
-        // All instances are now saved to cache by generateRecurringInstances
-        // Refresh from cache immediately to ensure state matches cache (includes all instances)
+        // Load current tasks to check for existing occurrences
+        const currentTasks = await loadTasksFromCache(userId);
+        const activeOccurrence = await ensureActiveOccurrence(newTask, currentTasks);
+        
+        // Prepare tasks to push (template + active occurrence if created)
+        const tasksToPush = [newTask];
+        if (activeOccurrence) {
+          tasksToPush.push(activeOccurrence);
+        }
+        
+        // Refresh from cache immediately to ensure state matches cache
         await refreshTasks();
         
-        // Push template + all instances to Supabase in batch (only if authenticated)
+        // Push template + active occurrence to Supabase in batch (only if authenticated)
         if (isAuthenticated) {
           try {
-            const allTasksToPush = [newTask, ...instances];
-            await pushTasksToSupabaseBatch(allTasksToPush);
-            console.log('[useSync] Template + all instances pushed to Supabase successfully');
+            await pushTasksToSupabaseBatch(tasksToPush);
+            console.log('[useSync] Template + active occurrence pushed to Supabase successfully');
             
-            // Refresh after a delay to allow Supabase to process all inserts and merge any changes
+            // Refresh after a delay to allow Supabase to process inserts
             setTimeout(async () => {
               await refreshTasks();
             }, 2000);
           } catch (error) {
             console.error('[useSync] Error pushing tasks to Supabase:', error);
             setError('Tasks saved locally. Will sync later.');
-            // State already refreshed above, so UI already shows all instances
           }
         }
-        // If not authenticated, state was already refreshed above
       } else {
         // Not a recurring task
         // Refresh local view
@@ -217,6 +236,11 @@ export function useSync(): UseSyncReturn {
     if (task.user_id !== userId) {
       console.error('[useSync] SECURITY: Attempt to update task belonging to another user:', task.id);
       throw new Error('Access denied: Cannot update tasks belonging to other users');
+    }
+
+    // PROBLEM 9: Prevent completing recurring templates
+    if (task.status === 'done' && isRecurringTemplate(task)) {
+      throw new Error('Cannot complete recurring template. Only occurrences can be completed.');
     }
 
     try {
@@ -269,34 +293,38 @@ export function useSync(): UseSyncReturn {
       // Update template task in local cache immediately
       await upsertTaskToCache(updatedTask);
 
-      // Regenerate future instances if recurring
+      // PROBLEM 2: For recurring tasks, ensure active occurrence instead of pre-generating all
       if (isRecurring) {
-        console.log('[useSync] Regenerating recurring instances for task:', updatedTask.id);
-        const instances = await generateRecurringInstances(updatedTask);
-        console.log('[useSync] Generated', instances.length, 'instances');
+        console.log('[useSync] Ensuring active occurrence for updated recurring task');
         
-        // All instances are now saved to cache by generateRecurringInstances
-        // Refresh from cache immediately to ensure state matches cache (includes all instances)
+        // Load current tasks to check for existing occurrences
+        const currentTasks = await loadTasksFromCache(userId);
+        const activeOccurrence = await ensureActiveOccurrence(updatedTask, currentTasks);
+        
+        // Prepare tasks to push (template + active occurrence if created)
+        const tasksToPush = [updatedTask];
+        if (activeOccurrence) {
+          tasksToPush.push(activeOccurrence);
+        }
+        
+        // Refresh from cache immediately to ensure state matches cache
         await refreshTasks();
         
-        // Push template + all instances to Supabase in batch (only if authenticated)
+        // Push template + active occurrence to Supabase in batch (only if authenticated)
         if (isAuthenticated) {
           try {
-            const allTasksToPush = [updatedTask, ...instances];
-            await pushTasksToSupabaseBatch(allTasksToPush);
-            console.log('[useSync] Template + all instances pushed to Supabase successfully');
+            await pushTasksToSupabaseBatch(tasksToPush);
+            console.log('[useSync] Template + active occurrence pushed to Supabase successfully');
             
-            // Refresh after a delay to allow Supabase to process all inserts and merge any changes
+            // Refresh after a delay to allow Supabase to process inserts
             setTimeout(async () => {
               await refreshTasks();
             }, 2000);
           } catch (error) {
             console.error('[useSync] Error pushing tasks to Supabase:', error);
             setError('Changes saved locally. Will sync later.');
-            // State already refreshed above, so UI already shows all instances
           }
         }
-        // If not authenticated, state was already refreshed above
       } else {
         // Not a recurring task
         // Refresh local view
@@ -405,15 +433,31 @@ export function useSync(): UseSyncReturn {
 
   /**
    * Toggle task status between pending and done
+   * PROBLEM 9: Prevent completing recurring templates
    */
   const toggleTaskStatus = useCallback(async (task: Task) => {
     try {
+      // PROBLEM 9: Prevent completing recurring templates
+      if (isRecurringTemplate(task)) {
+        Alert.alert(
+          'Cannot Complete Template',
+          'Recurring templates cannot be completed. Only occurrences can be completed.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       const newStatus = task.status === 'done' ? 'pending' : 'done';
       console.log('[useSync] Toggling task status:', task.id, newStatus);
       await updateTask({ ...task, status: newStatus });
-    } catch (err) {
-      console.error('[useSync] Error toggling status:', err);
-      throw err;
+    } catch (err: any) {
+      // Handle error from updateTask (template completion attempt)
+      if (err?.message && err.message.includes('Cannot complete recurring template')) {
+        Alert.alert('Error', err.message, [{ text: 'OK' }]);
+      } else {
+        console.error('[useSync] Error toggling status:', err);
+        throw err;
+      }
     }
   }, [updateTask]);
 

@@ -7,16 +7,40 @@ import {
   Moon,
   Sun,
   LogOut,
-  Calendar
+  Calendar,
+  Clock,
+  Settings as SettingsIcon,
+  RefreshCw,
+  ListChecks,
+  Trash2
 } from "lucide-react";
 import { useThemeStore } from "../stores/themeStore";
+import { useTaskStore } from "../stores/taskStore";
 import { signOut } from "../lib/supabaseClient";
+import { useState } from "react";
 import toast from "react-hot-toast";
 
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggle } = useThemeStore();
+  const sync = useTaskStore((state) => state.sync);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    
+    setIsSyncing(true);
+    try {
+      await sync();
+      toast.success("Tasks synchronized successfully");
+    } catch (error: any) {
+      console.error("[Sidebar] Error syncing:", error);
+      toast.error(error.message || "Failed to sync tasks");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -46,9 +70,13 @@ export default function Sidebar() {
 
   const navItems = [
     { path: "/", icon: Home, label: "Today" },
+    { path: "/upcoming", icon: Clock, label: "Upcoming" },
     { path: "/tasks", icon: ListTodo, label: "All Tasks" },
     { path: "/calendar", icon: Calendar, label: "Calendar" },
+    { path: "/weekly-checklist", icon: ListChecks, label: "Weekly Checklist" },
+    { path: "/trash", icon: Trash2, label: "Trash" },
     { path: "/tasks/new", icon: Plus, label: "New Task" },
+    { path: "/settings", icon: SettingsIcon, label: "Settings" },
   ];
 
   return (
@@ -85,6 +113,17 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+        <button
+          onClick={handleSync}
+          disabled={isSyncing}
+          className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw size={20} className={isSyncing ? "animate-spin" : ""} />
+          <span className="font-medium">
+            {isSyncing ? "Syncing..." : "Sync Now"}
+          </span>
+        </button>
+        
         <button
           onClick={toggle}
           className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

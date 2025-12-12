@@ -27,6 +27,11 @@
       "expo-router",
       "expo-dev-client"
     ],
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/1ffb584b-e0b9-409e-acbd-197dbc720227"
+    },
     "scheme": "mydailyops",
     "extra": {
       "router": {

@@ -1,0 +1,12 @@
+{
+  "version": "1.1.0",
+  "notes": "MyDailyOps v1.1 — major update",
+  "pub_date": "2025-01-01T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "",
+      "url": "https://github.com/USERNAME/REPO/releases/download/v1.1.0/MyDailyOps_1.1.0_x64-setup.exe"
+    }
+  }
+}
+

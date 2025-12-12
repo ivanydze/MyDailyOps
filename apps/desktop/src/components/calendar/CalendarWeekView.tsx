@@ -10,6 +10,7 @@ import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useCalendarTasks } from "../../hooks/useCalendarTasks";
 import CalendarDay from "./CalendarDay";
+import type { TravelEvent } from "@mydailyops/core";
 
 interface CalendarWeekViewProps {
   weekStartDate: Date;           // First day of week (Sunday)
@@ -17,6 +18,7 @@ interface CalendarWeekViewProps {
   onDateChange?: (date: Date) => void;
   onTaskClick?: (task: any) => void;
   onTaskToggleComplete?: (task: any) => void;
+  onTravelEventClick?: (event: TravelEvent) => void;
   onAddTask?: (date?: Date) => void;
 }
 
@@ -26,6 +28,7 @@ export default function CalendarWeekView({
   onDateChange,
   onTaskClick,
   onTaskToggleComplete,
+  onTravelEventClick,
   onAddTask,
 }: CalendarWeekViewProps) {
   const [selectedWeekStart, setSelectedWeekStart] = useState(weekStartDate);
@@ -152,7 +155,7 @@ export default function CalendarWeekView({
         </div>
       ) : (
         <div className="flex-1 grid grid-cols-7 gap-2">
-          {weekDays.map((day, index) => {
+          {weekDays.map((day) => {
             // Create dateKey for this day
             const year = day.getFullYear();
             const month = String(day.getMonth() + 1).padStart(2, '0');
@@ -164,6 +167,7 @@ export default function CalendarWeekView({
               date: new Date(day),
               dateKey,
               tasks: [],
+              travelEvents: [],
             };
 
             return (
@@ -176,6 +180,7 @@ export default function CalendarWeekView({
                 }}
                 onTaskClick={onTaskClick}
                 onTaskToggleComplete={onTaskToggleComplete}
+                onTravelEventClick={onTravelEventClick}
               />
             );
           })}
